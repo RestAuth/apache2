@@ -109,7 +109,7 @@ static const command_rec authn_url_cmds[] =
 static char* url_pescape(apr_pool_t *p, const char *str)
 {
     // allocate 3 times the size of str
-    char *escaped = apr_palloc(p, strlen(str)*3);
+    char *escaped = apr_palloc(p, strlen(str)*3+1);
     char *escaped_str = escaped;
 
     while (*str) {
