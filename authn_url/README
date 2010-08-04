@@ -1,0 +1,45 @@
+this module is a basic auth provider for apache that forwards the auth requests to a given url
+
+INSTALLATION:
+copy the directory (authn_url) into the apache sources' modules/ directory.
+then add authn_url to the SUBDIRS variable in modules/NWGNUMakefile:
+
+SUBIRS = \
+         authn_url \
+         aaa \
+
+finally, in the apache sources' main directory, do:
+
+./buildconf
+./configure --enable-authn-url
+make
+make install
+
+
+USAGE:
+
+# don't forget to load the module if necessary (LoadModule ...)
+
+# BasicAuth required
+AuthType Basic
+AuthName "REST based authentication"
+
+# use the module for basic authentication
+AuthBasicProvider url
+
+# the url of the rest authentication provider
+URLAuthAddress http://localhost:5000/users/
+
+# what protocol to use:
+# on = POST URLAuthAddress<user> with password=<password> as www-urlencoded POST data
+# off = GET URLAuthAddress?username=<user>&password=<password>
+# defaults to on. remember that GET requests may be logged (including the password) by your REST auth provider
+# if you don't configure it properly, so "on" may be safer
+URLAuthUsePost on
+
+Require valid-user
+
+
+LICENSE:
+
+apache 2.0: http://www.apache.org/licenses/LICENSE-2.0
