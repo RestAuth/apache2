@@ -1,0 +1,15 @@
+# sudo apt-get install apache2-dev
+
+mod_authn_url.so: mod_authn_url.c
+	gcc -fPIC -DSHARED_MODULE -I/usr/include/apr-1.0 -I/usr/include/apache2 -c mod_authn_url.c
+	ld -Bshareable -o mod_authn_url.so mod_authn_url.o -lcurl
+	
+install: mod_authn_url.so
+	chmod 755 $<
+	cp $< /usr/lib/apache2/modules/
+
+clean:
+	rm -f mod_authn_url.so mod_authn_url.o
+	
+
+

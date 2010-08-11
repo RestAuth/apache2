@@ -34,6 +34,10 @@
 
 /* configuration parameters */
 
+#if AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER == 2
+#define APACHE_2_2
+#endif
+
 typedef struct {
     char *url;
     CURL *session;
@@ -194,13 +198,23 @@ static const authn_provider authn_url_provider =
 
 static void register_hooks(apr_pool_t *p)
 {
+#ifdef APACHE_2_2
+    ap_register_provider(p, AUTHN_PROVIDER_GROUP, "url", "0",
+                         &authn_url_provider);
+#else /* later version */
     ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "url",
                               AUTHN_PROVIDER_VERSION,
-                              &authn_url_provider, AP_AUTH_INTERNAL_PER_CONF);
-
+                              &authn_url_provider, AP_AUTH_INTERNAL_PER_CONF); 
+#endif
 }
 
+#ifdef APACHE_2_2
+APLOG_USE_MODULE(authn_url);
+
+module AP_MODULE_DECLARE_DATA authn_url_module =
+#else /* later version */
 AP_DECLARE_MODULE(authn_url) =
+#endif
 {
     STANDARD20_MODULE_STUFF,
     create_authn_url_dir_config,  /* create config structure per directory */
