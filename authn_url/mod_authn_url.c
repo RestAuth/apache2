@@ -34,9 +34,7 @@
 
 /* configuration parameters */
 
-#if AP_SERVER_MAJORVERSION_NUMBER == 2 && AP_SERVER_MINORVERSION_NUMBER == 2
-#define APACHE_2_2
-#endif
+#define APACHE_OLDER_THAN(major,minor) (AP_SERVER_MAJORVERSION_NUMBER < major) || (AP_SERVER_MAJORVERSION_NUMBER == major && AP_SERVER_MINORVERSION_NUMBER < minor)
 
 typedef struct {
     char *url;
@@ -198,21 +196,20 @@ static const authn_provider authn_url_provider =
 
 static void register_hooks(apr_pool_t *p)
 {
-#ifdef APACHE_2_2
+#if APACHE_OLDER_THAN(2,3)
     ap_register_provider(p, AUTHN_PROVIDER_GROUP, "url", "0",
                          &authn_url_provider);
-#else /* later version */
+#else
     ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "url",
                               AUTHN_PROVIDER_VERSION,
                               &authn_url_provider, AP_AUTH_INTERNAL_PER_CONF); 
 #endif
 }
 
-#ifdef APACHE_2_2
+#if APACHE_OLDER_THAN(2,3)
 APLOG_USE_MODULE(authn_url);
-
 module AP_MODULE_DECLARE_DATA authn_url_module =
-#else /* later version */
+#else
 AP_DECLARE_MODULE(authn_url) =
 #endif
 {
