@@ -186,7 +186,7 @@ static authn_status check_url(request_rec *r, const char *user,
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);
 
-    int curlStatus;
+    int curl_status;
     /* get response code - 200 OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
 
