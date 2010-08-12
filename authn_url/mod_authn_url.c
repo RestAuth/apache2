@@ -99,7 +99,7 @@ static const char *url_set_group(cmd_parms *cmd,
     if (!*arg)
         return "Group not specified";
 
-    /* init url */
+    /* add group */
     authn_url_config *conf = (authn_url_config *)conf_data;
     conf->group = apr_pstrdup(cmd->pool, arg);
 
@@ -113,7 +113,7 @@ static const command_rec authn_url_cmds[] =
      */
     AP_INIT_ITERATE("URLAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
-    AP_INIT_ITERATE("URLAuthGroup", url_set_group, NULL, OR_AUTHCFG,
+    AP_INIT_ITERATE("URLAuthGroup", url_set_group, NULL, OR_AUTHCFG, /* TODO: maybe use Require (authz) */
         "The group to be validated against"),
     AP_INIT_FLAG("URLAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authn_url_config, forward_ip), OR_AUTHCFG,
@@ -181,7 +181,7 @@ static authn_status check_url(request_rec *r, const char *user,
     curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
 	curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
 
-	url	= apr_psprintf(url_pool, "%s%s", conf->url,
+	url	= apr_psprintf(url_pool, "%s%s/", conf->url,
 			           url_pescape(url_pool, user));
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);
