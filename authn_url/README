@@ -46,20 +46,11 @@ AuthBasicProvider url
 
 # the url of the rest authentication provider
 URLAuthAddress http://localhost:5000/users/
-
-# what protocol to use:
-# on = POST URLAuthAddress<user> with password=<password> as
-#      www-urlencoded POST data
-# off = GET URLAuthAddress<user>?password=<password>
-#
-# defaults to on. remember that GET requests may be logged 
-# (including the password) by your REST auth provider
-# if you don't configure it properly, so "on" may be safer
-URLAuthUsePost on
+# requests will look like this: POST URLAuthAddress<user>
+# with password=<pass> as POST data
 
 # whether to forward the client's ip address:
 # POST: password=<password>&ip=<ip> is sent as the POST data
-# GET: URLAuthAddress<user>?password=<password>&ip=<ip>
 #
 # defaults to off
 URLAuthForwardIP off

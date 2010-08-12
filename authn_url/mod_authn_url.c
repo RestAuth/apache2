@@ -39,7 +39,6 @@
 typedef struct {
     char *url;
     CURL *session;
-    int use_post;
     int forward_ip;
 } authn_url_config;
 
@@ -60,7 +59,6 @@ static void *create_authn_url_dir_config(apr_pool_t *p, char *d)
     authn_url_config *conf = apr_palloc(p, sizeof(*conf));
     conf->url = NULL;
     conf->session = NULL;
-    conf->use_post = 1;
     conf->forward_ip = 0;
 
     /* register cleanup handler */
@@ -95,15 +93,12 @@ static const char *url_set_locator(cmd_parms *cmd,
 
 static const command_rec authn_url_cmds[] =
 {
-    /* for now, the two protocols implemented are:
+    /* for now, the one protocol implemented is:
        - RestAuth-GET: GET AuthURL<user>?password=<password>
        - RestAuth-POST: POST AuthURL<user> (with password=<password> as www-urlencoded POST data)
      */
     AP_INIT_ITERATE("URLAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
-    AP_INIT_FLAG("URLAuthUsePost", ap_set_flag_slot,
-        (void *)APR_OFFSETOF(authn_url_config, use_post), OR_AUTHCFG,
-        "Limited to 'on' or 'off'"),
     AP_INIT_FLAG("URLAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authn_url_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
@@ -161,25 +156,17 @@ static authn_status check_url(request_rec *r, const char *user,
     /* fetch client ip */
     char *ip = r->connection->remote_ip;
 
-    if (conf->use_post) {
-        char *post_data = apr_psprintf(url_pool, "password=%s%s%s",
-				       url_pescape(url_pool, sent_pw),
-				       /* ip data if requested */
-				       (conf->forward_ip)?"&ip=":"",
-				       (conf->forward_ip)?url_pescape(url_pool, ip):"");
+    char *post_data = apr_psprintf(url_pool, "password=%s%s%s",
+    		url_pescape(url_pool, sent_pw),
+    		/* ip data if requested */
+			(conf->forward_ip)?"&ip=":"",
+			(conf->forward_ip)?url_pescape(url_pool, ip):"");
 
-        curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
-        curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
+    curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
+	curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
 
-        url = apr_psprintf(url_pool, "%s%s", conf->url, url_pescape(url_pool, user));
-    }
-    else {
-		url = apr_psprintf(url_pool, "%s%s?password=%s%s%s", conf->url,
-		                   url_pescape(url_pool, user), url_pescape(url_pool, sent_pw),
-                           /* ip data if requested */
-                           (conf->forward_ip)?"&ip=":"",
-                           (conf->forward_ip)?url_pescape(url_pool, ip):"");
-    }
+	url	= apr_psprintf(url_pool, "%s%s", conf->url,
+			           url_pescape(url_pool, user));
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);
 
