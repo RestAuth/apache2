@@ -1,0 +1,12 @@
+# apxs is required, is setup by installing apache from source
+
+mod_authn_url.so: mod_authn_url.c
+	apxs -c -l curl mod_authn_url.c
+
+install: mod_authn_url.so
+	apxs -i -a mod_authn_url.so
+
+clean:
+	rm -f mod_authn_url.so mod_authn_url.o
+
+
