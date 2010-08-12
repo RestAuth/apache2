@@ -50,7 +50,7 @@ URLAuthAddress http://localhost:5000/users/
 # what protocol to use:
 # on = POST URLAuthAddress<user> with password=<password> as
 #      www-urlencoded POST data
-# off = GET URLAuthAddress?username=<user>&password=<password>
+# off = GET URLAuthAddress<user>?password=<password>
 #
 # defaults to on. remember that GET requests may be logged 
 # (including the password) by your REST auth provider
@@ -59,7 +59,7 @@ URLAuthUsePost on
 
 # whether to forward the client's ip address:
 # POST: password=<password>&ip=<ip> is sent as the POST data
-# GET: URLAuthAddress?username=<user>&password=<password>&ip=<ip>
+# GET: URLAuthAddress<user>?password=<password>&ip=<ip>
 #
 # defaults to off
 URLAuthForwardIP off

@@ -96,7 +96,7 @@ static const char *url_set_locator(cmd_parms *cmd,
 static const command_rec authn_url_cmds[] =
 {
     /* for now, the two protocols implemented are:
-       - RestAuth-GET: GET AuthURL?username=<user>&password=<password>
+       - RestAuth-GET: GET AuthURL<user>?password=<password>
        - RestAuth-POST: POST AuthURL<user> (with password=<password> as www-urlencoded POST data)
      */
     AP_INIT_ITERATE("URLAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
@@ -174,11 +174,11 @@ static authn_status check_url(request_rec *r, const char *user,
         url = apr_psprintf(url_pool, "%s%s", conf->url, url_pescape(url_pool, user));
     }
     else {
-        url = apr_psprintf(url_pool, "%s?username=%s&password=%s%s%s", conf->url,
-                           url_pescape(url_pool, user), url_pescape(url_pool, sent_pw),
-			   /* ip data if requested */
-			   (conf->forward_ip)?"&ip=":"",
-			   (conf->forward_ip)?url_pescape(url_pool, ip):"");
+		url = apr_psprintf(url_pool, "%s%s?password=%s%s%s", conf->url,
+		                   url_pescape(url_pool, user), url_pescape(url_pool, sent_pw),
+                           /* ip data if requested */
+                           (conf->forward_ip)?"&ip=":"",
+                           (conf->forward_ip)?url_pescape(url_pool, ip):"");
     }
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);
