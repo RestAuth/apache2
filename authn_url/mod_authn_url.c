@@ -77,7 +77,9 @@ static const char *url_set_locator(cmd_parms *cmd,
 
     /* init url */
     authn_url_config *conf = (authn_url_config *)conf_data;
-    conf->url = apr_pstrdup(cmd->pool, arg);
+    conf->url = apr_psprintf(cmd->pool, "%s%s", arg, 
+			     /* add trailing slash if omitted */
+			     (arg[strlen(arg)-1] == '/')?"":"/");
 
     /* init CURL session if not already initialized */
     if (!conf->session) {
@@ -89,6 +91,7 @@ static const char *url_set_locator(cmd_parms *cmd,
         curl_easy_setopt(conf->session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
 
         curl_easy_setopt(conf->session, CURLOPT_FAILONERROR, 1L);
+	curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
     }
     return NULL;
 }
@@ -162,6 +165,15 @@ static authn_status check_url(request_rec *r, const char *user,
     if (!conf->url)
         return AUTH_USER_NOT_FOUND;
 
+    /* perform sanity checks on username */
+    /*const char *user_ptr = user;
+    while (*user_ptr) {
+      if (*user_ptr < 0x20 || *user_ptr > 0x7e || strchr("\t ()<>@,;:\\\"/[]?={}", *user_ptr)) {
+	return AUTH_USER_NOT_FOUND;
+      }
+      user_ptr++;
+      }*/
+
     /* check_url_mati begins here */
 
     /* create url */
@@ -173,25 +185,24 @@ static authn_status check_url(request_rec *r, const char *user,
     char *ip = r->connection->remote_ip;
 
     char *post_data = apr_psprintf(url_pool, "password=%s%s%s",
-    		url_pescape(url_pool, sent_pw),
-    		/* ip data if requested */
-			(conf->forward_ip)?"&ip=":"",
-			(conf->forward_ip)?url_pescape(url_pool, ip):"");
+				   url_pescape(url_pool, sent_pw),
+				   /* ip data if requested */
+				   (conf->forward_ip)?"&ip=":"",
+				   (conf->forward_ip)?url_pescape(url_pool, ip):"");
 
-    curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
-	curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
-
-	url	= apr_psprintf(url_pool, "%s%s/", conf->url,
-			           url_pescape(url_pool, user));
+    curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
+    
+    url	= apr_psprintf(url_pool, "%s%s/", conf->url,
+		       url_pescape(url_pool, user));
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);
-
+    
     int curl_status;
     /* get response code - 200 OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
 
     apr_pool_destroy(url_pool);
-    curl_easy_reset(conf->session);
+    /* curl_easy_reset(conf->session); */
 
     /*ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, r,
                       "REST auth URL request: %s", url);*/
@@ -200,7 +211,7 @@ static authn_status check_url(request_rec *r, const char *user,
     if (curl_status != CURLE_OK)
     	return AUTH_DENIED;
 
-    /* user exist, now check, if user is in group */
+    /* user exists, now check if user is in group */
     res = AUTH_GRANTED;
 
     return res;
