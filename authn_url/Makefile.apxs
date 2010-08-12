@@ -7,6 +7,4 @@ install: mod_authn_url.so
 	apxs -i -a mod_authn_url.so
 
 clean:
-	rm -f mod_authn_url.so mod_authn_url.o
-
-
+	rm -f mod_authn_url.so mod_authn_url.la mod_authn_url.lo mod_authn_url.slo mod_authn_url.o
