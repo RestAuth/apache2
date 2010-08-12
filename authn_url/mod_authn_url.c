@@ -40,6 +40,7 @@ typedef struct {
     char *url;
     CURL *session;
     int use_post;
+    int forward_ip;
 } authn_url_config;
 
 
@@ -60,6 +61,7 @@ static void *create_authn_url_dir_config(apr_pool_t *p, char *d)
     conf->url = NULL;
     conf->session = NULL;
     conf->use_post = 1;
+    conf->forward_ip = 0;
 
     /* register cleanup handler */
     apr_pool_cleanup_register(p, conf, url_cleanup, NULL);
@@ -101,6 +103,9 @@ static const command_rec authn_url_cmds[] =
         "The URL of the authentication service"),
     AP_INIT_FLAG("URLAuthUsePost", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authn_url_config, use_post), OR_AUTHCFG,
+        "Limited to 'on' or 'off'"),
+    AP_INIT_FLAG("URLAuthForwardIP", ap_set_flag_slot,
+        (void *)APR_OFFSETOF(authn_url_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
     {NULL}
 };
@@ -153,21 +158,27 @@ static authn_status check_url(request_rec *r, const char *user,
     char *url;
     apr_pool_create(&url_pool, r->pool);
 
+    /* fetch client ip */
+    char *ip = r->connection->remote_ip;
+
     if (conf->use_post) {
-        char *pw_data = apr_psprintf(url_pool, "password=%s",
-                                     url_pescape(url_pool, sent_pw));
+        char *post_data = apr_psprintf(url_pool, "password=%s%s%s",
+				       url_pescape(url_pool, sent_pw),
+				       /* ip data if requested */
+				       (conf->forward_ip)?"&ip=":"",
+				       (conf->forward_ip)?url_pescape(url_pool, ip):"");
 
         curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
-        curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, pw_data);
+        curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
 
         url = apr_psprintf(url_pool, "%s%s", conf->url, url_pescape(url_pool, user));
     }
     else {
-        curl_easy_setopt(conf->session, CURLOPT_POST, 0L);
-        curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, NULL);
-
-        url = apr_psprintf(url_pool, "%s?username=%s&password=%s", conf->url,
-                           url_pescape(url_pool, user), url_pescape(url_pool, sent_pw));
+        url = apr_psprintf(url_pool, "%s?username=%s&password=%s%s%s", conf->url,
+                           url_pescape(url_pool, user), url_pescape(url_pool, sent_pw),
+			   /* ip data if requested */
+			   (conf->forward_ip)?"&ip=":"",
+			   (conf->forward_ip)?url_pescape(url_pool, ip):"");
     }
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);

@@ -37,6 +37,10 @@ URLAuthAddress http://localhost:5000/users/
 # if you don't configure it properly, so "on" may be safer
 URLAuthUsePost on
 
+# whether to forward the client's ip address as the "ip"-parameter
+# defaults to off
+URLAuthForwardIP off
+
 Require valid-user
 
 
