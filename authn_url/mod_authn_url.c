@@ -40,6 +40,7 @@ typedef struct {
     char *url;
     CURL *session;
     int forward_ip;
+    char *group;
 } authn_url_config;
 
 
@@ -60,6 +61,7 @@ static void *create_authn_url_dir_config(apr_pool_t *p, char *d)
     conf->url = NULL;
     conf->session = NULL;
     conf->forward_ip = 0;
+    conf->group = NULL;
 
     /* register cleanup handler */
     apr_pool_cleanup_register(p, conf, url_cleanup, NULL);
@@ -91,14 +93,28 @@ static const char *url_set_locator(cmd_parms *cmd,
     return NULL;
 }
 
+static const char *url_set_group(cmd_parms *cmd,
+                                   void *conf_data, const char *arg)
+{
+    if (!*arg)
+        return "Group not specified";
+
+    /* init url */
+    authn_url_config *conf = (authn_url_config *)conf_data;
+    conf->group = apr_pstrdup(cmd->pool, arg);
+
+    return NULL;
+}
+
 static const command_rec authn_url_cmds[] =
 {
     /* for now, the one protocol implemented is:
-       - RestAuth-GET: GET AuthURL<user>?password=<password>
        - RestAuth-POST: POST AuthURL<user> (with password=<password> as www-urlencoded POST data)
      */
     AP_INIT_ITERATE("URLAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
+    AP_INIT_ITERATE("URLAuthGroup", url_set_group, NULL, OR_AUTHCFG,
+        "The group to be validated against"),
     AP_INIT_FLAG("URLAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authn_url_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
@@ -170,17 +186,23 @@ static authn_status check_url(request_rec *r, const char *user,
 
     curl_easy_setopt(conf->session, CURLOPT_URL, url);
 
+    int curlStatus;
     /* get response code - 200 OK, 404 NOT OK */
-    if (curl_easy_perform(conf->session) == CURLE_OK)
-        res = AUTH_GRANTED;
-    else /* this might be something else than a 404 */
-        res = AUTH_DENIED;
+    curl_status = curl_easy_perform(conf->session);
 
     apr_pool_destroy(url_pool);
     curl_easy_reset(conf->session);
 
     /*ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, r,
-                  "REST auth URL request: %s", url);*/
+                      "REST auth URL request: %s", url);*/
+
+    /* if status is not 200, return */
+    if (curl_status != CURLE_OK)
+    	return AUTH_DENIED;
+
+    /* user exist, now check, if user is in group */
+    res = AUTH_GRANTED;
+
     return res;
 }
 
