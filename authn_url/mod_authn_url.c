@@ -86,12 +86,6 @@ static const char *url_set_locator(cmd_parms *cmd,
         conf->session = curl_easy_init();
         if (!conf->session)
             return "Could not initialize HTTP request library";
-
-        curl_easy_setopt(conf->session, CURLOPT_NOSIGNAL, 1L);
-        curl_easy_setopt(conf->session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
-
-        curl_easy_setopt(conf->session, CURLOPT_FAILONERROR, 1L);
-	curl_easy_setopt(conf->session, CURLOPT_POST, 1L);
     }
     return NULL;
 }
@@ -112,7 +106,8 @@ static const char *url_set_group(cmd_parms *cmd,
 static const command_rec authn_url_cmds[] =
 {
     /* for now, the one protocol implemented is:
-       - RestAuth-POST: POST AuthURL<user> (with password=<password> as www-urlencoded POST data)
+       - RestAuth-POST: POST AuthURL/users/<user>/ (with password=<password> as www-urlencoded POST data)
+                        GET AuthURL/groups/<group>/<user>/ to check if user is in a group
      */
     AP_INIT_ITERATE("URLAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
@@ -153,6 +148,21 @@ static char* url_pescape(apr_pool_t *p, const char *str)
     return escaped;
 }
 
+/* function to set the necessary curl options */
+static void config_curl_session(CURL *session, char *url, char *post_data) {
+  curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
+  curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(session, CURLOPT_FAILONERROR, 1L);
+  
+  if (post_data) {
+    curl_easy_setopt(session, CURLOPT_POST, 1L);
+    curl_easy_setopt(session, CURLOPT_POSTFIELDS, post_data);
+  }
+
+  curl_easy_setopt(session, CURLOPT_URL, url);
+
+}
+
 module AP_MODULE_DECLARE_DATA authn_url_module;
 
 static authn_status check_url(request_rec *r, const char *user,
@@ -165,18 +175,7 @@ static authn_status check_url(request_rec *r, const char *user,
     if (!conf->url)
         return AUTH_USER_NOT_FOUND;
 
-    /* perform sanity checks on username */
-    /*const char *user_ptr = user;
-    while (*user_ptr) {
-      if (*user_ptr < 0x20 || *user_ptr > 0x7e || strchr("\t ()<>@,;:\\\"/[]?={}", *user_ptr)) {
-	return AUTH_USER_NOT_FOUND;
-      }
-      user_ptr++;
-      }*/
-
-    /* check_url_mati begins here */
-
-    /* create url */
+    /* create url and storage */
     apr_pool_t *url_pool = NULL;
     char *url;
     apr_pool_create(&url_pool, r->pool);
@@ -190,31 +189,60 @@ static authn_status check_url(request_rec *r, const char *user,
 				   (conf->forward_ip)?"&ip=":"",
 				   (conf->forward_ip)?url_pescape(url_pool, ip):"");
 
-    curl_easy_setopt(conf->session, CURLOPT_POSTFIELDS, post_data);
-    
-    url	= apr_psprintf(url_pool, "%s%s/", conf->url,
+    url	= apr_psprintf(url_pool, "%susers/%s/", conf->url,
 		       url_pescape(url_pool, user));
 
-    curl_easy_setopt(conf->session, CURLOPT_URL, url);
-    
+    config_curl_session(conf->session, url, post_data);
+
     int curl_status;
+    long curl_http_code;
     /* get response code - 200 OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
-
-    apr_pool_destroy(url_pool);
-    /* curl_easy_reset(conf->session); */
+    curl_status += curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
 
     /*ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, r,
                       "REST auth URL request: %s", url);*/
 
+    curl_easy_reset(conf->session);
+	
     /* if status is not 200, return */
-    if (curl_status != CURLE_OK)
+    if (curl_status != CURLE_OK || curl_http_code != 200) {
+    	apr_pool_destroy(url_pool);
     	return AUTH_DENIED;
+    }
 
-    /* user exists, now check if user is in group */
-    res = AUTH_GRANTED;
+    /* if no group is set, grant access */
+    if (!conf->group) {
+    	apr_pool_destroy(url_pool);
+	return AUTH_GRANTED;
+    }
 
-    return res;
+    /* user exists with valid password, now check if user is in group */
+    /* compile GET url/parameters */
+
+    url = apr_psprintf(url_pool, "%sgroups/%s/%s/", conf->url,
+                         url_pescape(url_pool, conf->group),
+                         url_pescape(url_pool, user));
+
+    ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, r,
+		  "REST auth valid group check: %s", url);
+
+
+    /* set request parameters */
+    config_curl_session(conf->session, url, NULL);
+
+    /* get response code - 200 OK, 404 NOT OK */
+    curl_status = curl_easy_perform(conf->session);
+    curl_status += curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
+
+    apr_pool_destroy(url_pool);
+    curl_easy_reset(conf->session);
+
+    /* group exists, and user is in the specified group */
+    if (curl_status == CURLE_OK && curl_http_code == 200)
+    	return AUTH_GRANTED;
+    else
+        return AUTH_DENIED;
 }
 
 /* module stuff */

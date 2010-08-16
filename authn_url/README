@@ -45,9 +45,14 @@ AuthName "REST based authentication"
 AuthBasicProvider url
 
 # the url of the rest authentication provider
-URLAuthAddress http://localhost:5000/users/
-# requests will look like this: POST URLAuthAddress<user>
+URLAuthAddress http://localhost:5000/
+# requests will look like this: POST URLAuthAddress/users/<user>/
 # with password=<pass> as POST data
+
+# optionally, a group the user must belong to
+URLAuthGroup admins
+# an additional request will be dispatched:
+# GET URLAuthAddress/groups/<group>/<user>/
 
 # whether to forward the client's ip address:
 # POST: password=<password>&ip=<ip> is sent as the POST data
