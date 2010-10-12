@@ -41,11 +41,11 @@ typedef struct {
     CURL *session;
     int forward_ip;
     char *group;
-} authn_url_config;
+} authn_restauth_config;
 
 
 static apr_status_t url_cleanup(void *data) {
-    authn_url_config *conf = (authn_url_config *)data;
+    authn_restauth_config *conf = (authn_restauth_config *)data;
 
     if (conf->session) {
         curl_easy_cleanup(conf->session);
@@ -55,9 +55,9 @@ static apr_status_t url_cleanup(void *data) {
     return 0;
 }
 
-static void *create_authn_url_dir_config(apr_pool_t *p, char *d)
+static void *create_authn_restauth_dir_config(apr_pool_t *p, char *d)
 {
-    authn_url_config *conf = apr_palloc(p, sizeof(*conf));
+    authn_restauth_config *conf = apr_palloc(p, sizeof(*conf));
     conf->url = NULL;
     conf->session = NULL;
     conf->forward_ip = 0;
@@ -76,7 +76,7 @@ static const char *url_set_locator(cmd_parms *cmd,
         return "URL not specified";
 
     /* init url */
-    authn_url_config *conf = (authn_url_config *)conf_data;
+    authn_restauth_config *conf = (authn_restauth_config *)conf_data;
     conf->url = apr_psprintf(cmd->pool, "%s%s", arg, 
 			     /* add trailing slash if omitted */
 			     (arg[strlen(arg)-1] == '/')?"":"/");
@@ -97,24 +97,24 @@ static const char *url_set_group(cmd_parms *cmd,
         return "Group not specified";
 
     /* add group */
-    authn_url_config *conf = (authn_url_config *)conf_data;
+    authn_restauth_config *conf = (authn_restauth_config *)conf_data;
     conf->group = apr_pstrdup(cmd->pool, arg);
 
     return NULL;
 }
 
-static const command_rec authn_url_cmds[] =
+static const command_rec authn_restauth_cmds[] =
 {
     /* for now, the one protocol implemented is:
        - RestAuth-POST: POST AuthURL/users/<user>/ (with password=<password> as www-urlencoded POST data)
                         GET AuthURL/groups/<group>/<user>/ to check if user is in a group
      */
-    AP_INIT_ITERATE("URLAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
+    AP_INIT_ITERATE("RestAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
-    AP_INIT_ITERATE("URLAuthGroup", url_set_group, NULL, OR_AUTHCFG, /* TODO: maybe use Require (authz) */
+    AP_INIT_ITERATE("RestAuthGroup", url_set_group, NULL, OR_AUTHCFG, /* TODO: maybe use Require (authz) */
         "The group to be validated against"),
-    AP_INIT_FLAG("URLAuthForwardIP", ap_set_flag_slot,
-        (void *)APR_OFFSETOF(authn_url_config, forward_ip), OR_AUTHCFG,
+    AP_INIT_FLAG("RestAuthForwardIP", ap_set_flag_slot,
+        (void *)APR_OFFSETOF(authn_restauth_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
     {NULL}
 };
@@ -163,12 +163,12 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
 
 }
 
-module AP_MODULE_DECLARE_DATA authn_url_module;
+module AP_MODULE_DECLARE_DATA authn_restauth_module;
 
 static authn_status check_url(request_rec *r, const char *user,
                                     const char *sent_pw)
 {
-    authn_url_config *conf = ap_get_module_config(r->per_dir_config, &authn_url_module);
+    authn_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authn_restauth_module);
     authn_status res = AUTH_USER_NOT_FOUND;
 
     /* ignore if not configured */
@@ -247,7 +247,7 @@ static authn_status check_url(request_rec *r, const char *user,
 
 /* module stuff */
 
-static const authn_provider authn_url_provider =
+static const authn_provider authn_restauth_provider =
 {
     &check_url,
     NULL
@@ -257,26 +257,26 @@ static void register_hooks(apr_pool_t *p)
 {
 #if APACHE_OLDER_THAN(2,3)
     ap_register_provider(p, AUTHN_PROVIDER_GROUP, "url", "0",
-                         &authn_url_provider);
+                         &authn_restauth_provider);
 #else
     ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "url",
                               AUTHN_PROVIDER_VERSION,
-                              &authn_url_provider, AP_AUTH_INTERNAL_PER_CONF); 
+                              &authn_restauth_provider, AP_AUTH_INTERNAL_PER_CONF); 
 #endif
 }
 
 #if APACHE_OLDER_THAN(2,3)
-APLOG_USE_MODULE(authn_url);
-module AP_MODULE_DECLARE_DATA authn_url_module =
+APLOG_USE_MODULE(authn_restauth);
+module AP_MODULE_DECLARE_DATA authn_restauth_module =
 #else
-AP_DECLARE_MODULE(authn_url) =
+AP_DECLARE_MODULE(authn_restauth) =
 #endif
 {
     STANDARD20_MODULE_STUFF,
-    create_authn_url_dir_config,  /* create config structure per directory */
+    create_authn_restauth_dir_config,  /* create config structure per directory */
     NULL,                         /* dir merger ensure strictness */
     NULL,                         /* server config */
     NULL,                         /* merge server config */
-    authn_url_cmds,               /* command apr_table_t */
+    authn_restauth_cmds,               /* command apr_table_t */
     register_hooks                /* register hooks */
 };
