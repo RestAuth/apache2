@@ -11,7 +11,8 @@
  */
 
 /*
- *
+ * This file has been written/modified by:
+ * Mihai Ghete <viper@fsinf.at>
  *
  */
 
@@ -41,10 +42,14 @@ typedef struct {
     CURL *session;
     int forward_ip;
     char *group;
+    char *service_user;
+    char *service_password;
+
+    char *cached_auth_header;
 } authn_restauth_config;
 
 
-static apr_status_t url_cleanup(void *data) {
+static apr_status_t restauth_cleanup(void *data) {
     authn_restauth_config *conf = (authn_restauth_config *)data;
 
     if (conf->session) {
@@ -63,13 +68,16 @@ static void *create_authn_restauth_dir_config(apr_pool_t *p, char *d)
     conf->forward_ip = 0;
     conf->group = NULL;
 
+    conf->service_user = NULL;
+    conf->service_password = NULL;
+
     /* register cleanup handler */
-    apr_pool_cleanup_register(p, conf, url_cleanup, NULL);
+    apr_pool_cleanup_register(p, conf, restauth_cleanup, NULL);
 
     return conf;
 }
 
-static const char *url_set_locator(cmd_parms *cmd,
+static const char *restauth_set_locator(cmd_parms *cmd,
                                    void *conf_data, const char *arg)
 {
     if (!*arg || !ap_is_url(arg))
@@ -77,7 +85,7 @@ static const char *url_set_locator(cmd_parms *cmd,
 
     /* init url */
     authn_restauth_config *conf = (authn_restauth_config *)conf_data;
-    conf->url = apr_psprintf(cmd->pool, "%s%s", arg, 
+    conf->url = apr_psprintf(cmd->pool, "%s%s", arg,
 			     /* add trailing slash if omitted */
 			     (arg[strlen(arg)-1] == '/')?"":"/");
 
@@ -90,29 +98,25 @@ static const char *url_set_locator(cmd_parms *cmd,
     return NULL;
 }
 
-static const char *url_set_group(cmd_parms *cmd,
-                                   void *conf_data, const char *arg)
-{
-    if (!*arg)
-        return "Group not specified";
-
-    /* add group */
-    authn_restauth_config *conf = (authn_restauth_config *)conf_data;
-    conf->group = apr_pstrdup(cmd->pool, arg);
-
-    return NULL;
-}
-
 static const command_rec authn_restauth_cmds[] =
 {
     /* for now, the one protocol implemented is:
        - RestAuth-POST: POST AuthURL/users/<user>/ (with password=<password> as www-urlencoded POST data)
                         GET AuthURL/groups/<group>/<user>/ to check if user is in a group
      */
-    AP_INIT_ITERATE("RestAuthAddress", url_set_locator, NULL, OR_AUTHCFG,
+    AP_INIT_ITERATE("RestAuthAddress", restauth_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
-    AP_INIT_ITERATE("RestAuthGroup", url_set_group, NULL, OR_AUTHCFG, /* TODO: maybe use Require (authz) */
+    AP_INIT_ITERATE("RestAuthGroup", ap_set_string_slot,
+        (void *)APR_OFFSETOF(authn_restauth_config, group), OR_AUTHCFG, /* TODO: maybe use Require (authz) */
         "The group to be validated against"),
+
+    AP_INIT_ITERATE("RestAuthServiceUser", ap_set_string_slot,
+        (void *)APR_OFFSETOF(authn_restauth_config, service_user), OR_AUTHCFG,
+        "The username for the RestAuth service"),
+    AP_INIT_ITERATE("RestAuthServicePassword", ap_set_string_slot,
+        (void *)APR_OFFSETOF(authn_restauth_config, service_password), OR_AUTHCFG,
+        "The password for the RestAuth service"),
+
     AP_INIT_FLAG("RestAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authn_restauth_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
@@ -153,7 +157,7 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
   curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
   curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(session, CURLOPT_FAILONERROR, 1L);
-  
+
   if (post_data) {
     curl_easy_setopt(session, CURLOPT_POST, 1L);
     curl_easy_setopt(session, CURLOPT_POSTFIELDS, post_data);
@@ -163,9 +167,19 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
 
 }
 
+static void config_curl_auth(authn_restauth_config *conf) {
+    /* ignore if no username or password */
+    if (!conf->service_user || !conf->service_password)
+        return;
+
+    curl_easy_setopt(conf->session, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt(conf->session, CURLOPT_USERNAME, conf->service_user);
+    curl_easy_setopt(conf->session, CURLOPT_PASSWORD, conf->service_password);
+}
+
 module AP_MODULE_DECLARE_DATA authn_restauth_module;
 
-static authn_status check_url(request_rec *r, const char *user,
+static authn_status check_restauth(request_rec *r, const char *user,
                                     const char *sent_pw)
 {
     authn_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authn_restauth_module);
@@ -193,6 +207,7 @@ static authn_status check_url(request_rec *r, const char *user,
 		       url_pescape(url_pool, user));
 
     config_curl_session(conf->session, url, post_data);
+    config_curl_auth(conf);
 
     int curl_status;
     long curl_http_code;
@@ -204,7 +219,7 @@ static authn_status check_url(request_rec *r, const char *user,
                       "REST auth URL request: %s", url);*/
 
     curl_easy_reset(conf->session);
-	
+
     /* if status is not 200, return */
     if (curl_status != CURLE_OK || curl_http_code != 200) {
     	apr_pool_destroy(url_pool);
@@ -230,6 +245,7 @@ static authn_status check_url(request_rec *r, const char *user,
 
     /* set request parameters */
     config_curl_session(conf->session, url, NULL);
+    config_curl_auth(conf);
 
     /* get response code - 200 OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
@@ -249,19 +265,19 @@ static authn_status check_url(request_rec *r, const char *user,
 
 static const authn_provider authn_restauth_provider =
 {
-    &check_url,
+    &check_restauth,
     NULL
 };
 
 static void register_hooks(apr_pool_t *p)
 {
 #if APACHE_OLDER_THAN(2,3)
-    ap_register_provider(p, AUTHN_PROVIDER_GROUP, "url", "0",
+    ap_register_provider(p, AUTHN_PROVIDER_GROUP, "restauth", "0",
                          &authn_restauth_provider);
 #else
-    ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "url",
+    ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "restauth",
                               AUTHN_PROVIDER_VERSION,
-                              &authn_restauth_provider, AP_AUTH_INTERNAL_PER_CONF); 
+                              &authn_restauth_provider, AP_AUTH_INTERNAL_PER_CONF);
 #endif
 }
 
