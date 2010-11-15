@@ -24,7 +24,7 @@ AuthName "REST based authentication"
 Require valid-user
 
 # use the module for basic authentication
-AuthBasicProvider url
+AuthBasicProvider restauth
 
 # the url of the rest authentication provider
 RestAuthAddress http://localhost:5000/
