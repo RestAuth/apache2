@@ -167,14 +167,20 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
 
 }
 
-static void config_curl_auth(authn_restauth_config *conf) {
+static void config_curl_auth(apr_pool_t *p, authn_restauth_config *conf) {
     /* ignore if no username or password */
     if (!conf->service_user || !conf->service_password)
         return;
 
     curl_easy_setopt(conf->session, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+
+#if LIBCURL_VERSION_NUM >= 0x071301 /* CURL >= 7.19.1 */
     curl_easy_setopt(conf->session, CURLOPT_USERNAME, conf->service_user);
     curl_easy_setopt(conf->session, CURLOPT_PASSWORD, conf->service_password);
+#else /* CURL < 7.19.1 - USERPWD option */
+    curl_easy_setopt(conf->session, CURLOPT_USERPWD,
+                     apr_psprintf(p, "%s:%s", conf->service_user, conf->service_password));
+#endif
 }
 
 module AP_MODULE_DECLARE_DATA authn_restauth_module;
@@ -207,7 +213,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
 		       url_pescape(url_pool, user));
 
     config_curl_session(conf->session, url, post_data);
-    config_curl_auth(conf);
+    config_curl_auth(url_pool, conf);
 
     int curl_status;
     long curl_http_code;
@@ -245,7 +251,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
 
     /* set request parameters */
     config_curl_session(conf->session, url, NULL);
-    config_curl_auth(conf);
+    config_curl_auth(url_pool, conf);
 
     /* get response code - 200 OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
