@@ -1,7 +1,8 @@
 this module is a basic auth provider for apache that forwards the auth requests
-to a given url.
+to a RestAuth service specified by a given url.
 
-
+for the RestAuth specification the server must implement see:
+http://fs.fsinf.at/wiki/RestAuth/Specification
 
 INSTALLATION:
 
@@ -30,9 +31,14 @@ AuthBasicProvider restauth
 RestAuthAddress http://localhost:5000/
 # requests will look like this: POST RestAuthAddress/users/<user>/
 # with password=<pass> as POST data
+# 
+# the response code from the server must be in the 200-299 range (incl.)
+# if the user/password combination is correct, or outside the range
+# (e.g. code 404) if it is not.
 
 # optionally, authentication data for the provider
-# (so you can authenticate as a certain service)
+# (so you can authenticate as a certain service according to the 
+# RestAuth specification)
 RestAuthUser mysite
 RestAuthPassword mysitepassword
 # RestAuthAddress URLs will be accessed with Basic authentication
@@ -43,6 +49,9 @@ RestAuthPassword mysitepassword
 RestAuthGroup admins
 # an additional request will be dispatched:
 # GET RestAuthAddress/groups/<group>/<user>/
+# the response code from the server must be in the 200-299 (incl.) range
+# if the user belongs to the group and outside the range (e.g. code 404)
+# if not.
 
 # whether to forward the client's ip address:
 # POST: password=<password>&ip=<ip> is sent as the POST data

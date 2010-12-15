@@ -217,7 +217,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
 
     int curl_status;
     long curl_http_code;
-    /* get response code - 200 OK, 404 NOT OK */
+    /* get response code - 200 range OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
     curl_status += curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
 
@@ -226,8 +226,8 @@ static authn_status check_restauth(request_rec *r, const char *user,
 
     curl_easy_reset(conf->session);
 
-    /* if status is not 200, return */
-    if (curl_status != CURLE_OK || curl_http_code != 200) {
+    /* if status is not in the 200-299 range, return */
+    if (curl_status != CURLE_OK || (curl_http_code > 299 || curl_http_code < 200)) {
     	apr_pool_destroy(url_pool);
     	return AUTH_DENIED;
     }
@@ -253,7 +253,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
     config_curl_session(conf->session, url, NULL);
     config_curl_auth(url_pool, conf);
 
-    /* get response code - 200 OK, 404 NOT OK */
+    /* get response code - 200-299 range OK, 404 NOT OK */
     curl_status = curl_easy_perform(conf->session);
     curl_status += curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
 
@@ -261,7 +261,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
     curl_easy_reset(conf->session);
 
     /* group exists, and user is in the specified group */
-    if (curl_status == CURLE_OK && curl_http_code == 200)
+    if (curl_status == CURLE_OK && (curl_http_code <= 299 && curl_http_code >= 200))
     	return AUTH_GRANTED;
     else
         return AUTH_DENIED;
