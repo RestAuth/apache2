@@ -102,7 +102,7 @@ static const command_rec authn_restauth_cmds[] =
 {
     /* for now, the one protocol implemented is:
        - RestAuth-POST: POST AuthURL/users/<user>/ (with password=<password> as www-urlencoded POST data)
-                        GET AuthURL/groups/<group>/<user>/ to check if user is in a group
+                        GET AuthURL/groups/<group>/users/<user>/ to check if user is in a group
      */
     AP_INIT_ITERATE("RestAuthAddress", restauth_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
@@ -241,7 +241,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
     /* user exists with valid password, now check if user is in group */
     /* compile GET url/parameters */
 
-    url = apr_psprintf(url_pool, "%sgroups/%s/%s/", conf->url,
+    url = apr_psprintf(url_pool, "%sgroups/%s/users/%s/", conf->url,
                          url_pescape(url_pool, conf->group),
                          url_pescape(url_pool, user));
 
