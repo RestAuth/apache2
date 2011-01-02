@@ -1,0 +1,2 @@
+apache/.libs/mod_authn_restauth.so usr/lib/apache2/modules
+debian/mod-authn-restauth.load etc/apache2/mods-available

@@ -1,0 +1,18 @@
+libapache2-mod-authn-restauth (348-1) maverick; urgency=low
+
+  * bump from upstream
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Mon, 15 Nov 2010 18:52:55 +0100
+
+libapache2-mod-authn-restauth (234-1) maverick; urgency=low
+
+  * fix loading the right module
+  * Move to single changelog files
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Sat, 13 Nov 2010 16:55:13 +0100
+
+python-restauth (190-1) lucid; urgency=low
+
+  * Initial version
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Thu, 30 Sep 2010 11:57:14 +0200
