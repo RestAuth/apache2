@@ -11,7 +11,7 @@
  */
 
 /*
- * This file has been written/modified by:
+ * This file was written/modified by:
  * Mihai Ghete <viper@fsinf.at>
  *
  */
@@ -156,7 +156,6 @@ static char* url_pescape(apr_pool_t *p, const char *str)
 static void config_curl_session(CURL *session, char *url, char *post_data) {
   curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
   curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
-  curl_easy_setopt(session, CURLOPT_FAILONERROR, 1L);
 
   if (post_data) {
     curl_easy_setopt(session, CURLOPT_POST, 1L);
@@ -167,6 +166,7 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
 
 }
 
+/* function to set the curl authentication options */
 static void config_curl_auth(apr_pool_t *p, authn_restauth_config *conf) {
     /* ignore if no username or password */
     if (!conf->service_user || !conf->service_password)
@@ -183,13 +183,18 @@ static void config_curl_auth(apr_pool_t *p, authn_restauth_config *conf) {
 #endif
 }
 
+/* function to log an error */
+static void restauth_server_error(request_rec *r, const char *url, int curl_status, int http_code, char *data) {
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r,
+                          "RestAuth server failed on request: %s [CURL status: %s, HTTP code: %d]", url, curl_easy_strerror(curl_status), http_code);
+}
+
 module AP_MODULE_DECLARE_DATA authn_restauth_module;
 
 static authn_status check_restauth(request_rec *r, const char *user,
                                     const char *sent_pw)
 {
     authn_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authn_restauth_module);
-    authn_status res = AUTH_USER_NOT_FOUND;
 
     /* ignore if not configured */
     if (!conf->url)
@@ -215,11 +220,13 @@ static authn_status check_restauth(request_rec *r, const char *user,
     config_curl_session(conf->session, url, post_data);
     config_curl_auth(url_pool, conf);
 
-    int curl_status;
+    int curl_perform_status = 0;
+    int curl_info_status = 0;
     long curl_http_code;
     /* get response code - 200 range OK, 404 NOT OK */
-    curl_status = curl_easy_perform(conf->session);
-    curl_status += curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
+    curl_perform_status = curl_easy_perform(conf->session);
+    curl_info_status = curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
+    int curl_status = curl_perform_status + curl_info_status;
 
     /*ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, r,
                       "REST auth URL request: %s", url);*/
@@ -228,7 +235,17 @@ static authn_status check_restauth(request_rec *r, const char *user,
 
     /* if status is not in the 200-299 range, return */
     if (curl_status != CURLE_OK || (curl_http_code > 299 || curl_http_code < 200)) {
+
+        /* log a failed request / non-404 error code */
+        if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404))
+            restauth_server_error(r, url, curl_perform_status, curl_http_code, NULL);
+
     	apr_pool_destroy(url_pool);
+
+        /* fail if request fails / returns internal server error */
+        if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404))
+            return AUTH_GENERAL_ERROR;
+
     	return AUTH_DENIED;
     }
 
@@ -245,17 +262,18 @@ static authn_status check_restauth(request_rec *r, const char *user,
                          url_pescape(url_pool, conf->group),
                          url_pescape(url_pool, user));
 
-    ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, r,
-		  "REST auth valid group check: %s", url);
-
-
     /* set request parameters */
     config_curl_session(conf->session, url, NULL);
     config_curl_auth(url_pool, conf);
 
-    /* get response code - 200-299 range OK, 404 NOT OK */
-    curl_status = curl_easy_perform(conf->session);
-    curl_status += curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
+    /* get response code - 200-299 range OK, 404 NOT OK, 500 ERROR */
+    curl_perform_status = curl_easy_perform(conf->session);
+    curl_info_status = curl_easy_getinfo(conf->session, CURLINFO_RESPONSE_CODE, &curl_http_code);
+    curl_status = curl_perform_status + curl_info_status;
+
+    /* log a failed request / non-404 error code */
+    if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404))
+        restauth_server_error(r, url, curl_perform_status, curl_http_code, NULL);
 
     apr_pool_destroy(url_pool);
     curl_easy_reset(conf->session);
@@ -263,6 +281,10 @@ static authn_status check_restauth(request_rec *r, const char *user,
     /* group exists, and user is in the specified group */
     if (curl_status == CURLE_OK && (curl_http_code <= 299 && curl_http_code >= 200))
     	return AUTH_GRANTED;
+    else if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404)) {
+        /* fail if request fails / returns internal server error */
+        return AUTH_GENERAL_ERROR;
+    }
     else
         return AUTH_DENIED;
 }
