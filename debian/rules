@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-SVN_DIR=php
+SVN_DIR=apache
 
 # check where we are running:
 DIST_CODENAME=$(shell lsb_release -sc)
@@ -46,6 +46,6 @@ cleanup: clean
 	dh ${DH_ARGS} $@
 
 override_dh_auto_build: $(PYVERS:%=build-python%)
-	dh_auto_build -O --with-quilt
+	make
 
-	make doc
+override_dh_auto_install:
