@@ -72,7 +72,7 @@ static void *create_authn_restauth_dir_config(apr_pool_t *p, char *d)
     conf->service_password = NULL;
 
     /* register cleanup handler */
-    apr_pool_cleanup_register(p, conf, restauth_cleanup, NULL);
+    apr_pool_cleanup_register(p, conf, restauth_cleanup, restauth_cleanup);
 
     return conf;
 }
