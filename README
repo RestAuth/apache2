@@ -1,5 +1,5 @@
-this module is a basic auth provider for apache that forwards the auth requests
-to a RestAuth service specified by a given url.
+this module is a Basic auth provider for apache that forwards the auth requests
+to a RestAuth service specified by a given URL.
 
 for the RestAuth specification the server must implement see:
 http://fs.fsinf.at/wiki/RestAuth/Specification
@@ -24,17 +24,18 @@ AuthName "REST based authentication"
 
 Require valid-user
 
-# use the module for basic authentication
+# use the module for Basic authentication
 AuthBasicProvider restauth
 
-# the url of the rest authentication provider
+# the URL of the RestAuth provider
 RestAuthAddress http://localhost:5000/
 # requests will look like this: POST RestAuthAddress/users/<user>/
-# with password=<pass> as POST data
+# with "password=<pass>" as POST data
 # 
 # the response code from the server must be in the 200-299 range (incl.)
-# if the user/password combination is correct, or outside the range
-# (e.g. code 404) if it is not.
+# if the user/password combination is correct, or 404 if it is not.
+# other response codes will be treated as errors and propagate to the
+# user.
 
 # optionally, authentication data for the provider
 # (so you can authenticate as a certain service according to the 
@@ -49,12 +50,13 @@ RestAuthServicePassword mysitepassword
 RestAuthGroup admins
 # an additional request will be dispatched:
 # GET RestAuthAddress/groups/<group>/users/<user>/
-# the response code from the server must be in the 200-299 (incl.) range
-# if the user belongs to the group and outside the range (e.g. code 404)
-# if not.
+# the response code from the server must be in the 200-299 range (incl.)
+# if the user/password combination is correct, or 404 if it is not.
+# other response codes will be treated as errors and propagateto the
+# user.
 
 # whether to forward the client's ip address:
-# POST: password=<password>&ip=<ip> is sent as the POST data
+# "password=<password>&ip=<ip>" is sent as POST data
 #
 # defaults to off
 RestAuthForwardIP off
