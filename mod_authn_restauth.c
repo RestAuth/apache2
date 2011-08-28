@@ -44,8 +44,8 @@ typedef struct {
     char *group;
     char *service_user;
     char *service_password;
+    int service_validate_cert;
 
-    char *cached_auth_header;
 } authn_restauth_config;
 
 
@@ -70,6 +70,7 @@ static void *create_authn_restauth_dir_config(apr_pool_t *p, char *d)
 
     conf->service_user = NULL;
     conf->service_password = NULL;
+    conf->service_validate_cert = 1;
 
     /* register cleanup handler */
     apr_pool_cleanup_register(p, conf, restauth_cleanup, restauth_cleanup);
@@ -116,6 +117,10 @@ static const command_rec authn_restauth_cmds[] =
     AP_INIT_ITERATE("RestAuthServicePassword", ap_set_string_slot,
         (void *)APR_OFFSETOF(authn_restauth_config, service_password), OR_AUTHCFG,
         "The password for the RestAuth service"),
+
+    AP_INIT_FLAG("RestAuthServiceValidateCertificate", ap_set_flag_slot,
+        (void *)APR_OFFSETOF(authn_restauth_config, service_validate_cert), OR_AUTHCFG,
+        "Limited to 'on' or 'off'"),
 
     AP_INIT_FLAG("RestAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authn_restauth_config, forward_ip), OR_AUTHCFG,
@@ -166,8 +171,12 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
 
 }
 
-/* function to set the curl authentication options */
-static void config_curl_auth(apr_pool_t *p, authn_restauth_config *conf) {
+/* function to set the curl authentication and certificate validation options */
+static void config_curl_auth_validate(apr_pool_t *p, authn_restauth_config *conf) {
+
+    /* certificate validation */
+    curl_easy_setopt(conf->session, CURLOPT_SSL_VERIFYPEER, conf->service_validate_cert);
+
     /* ignore if no username or password */
     if (!conf->service_user || !conf->service_password)
         return;
@@ -218,7 +227,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
 		       url_pescape(url_pool, user));
 
     config_curl_session(conf->session, url, post_data);
-    config_curl_auth(url_pool, conf);
+    config_curl_auth_validate(url_pool, conf);
 
     int curl_perform_status = 0;
     int curl_info_status = 0;
@@ -264,7 +273,7 @@ static authn_status check_restauth(request_rec *r, const char *user,
 
     /* set request parameters */
     config_curl_session(conf->session, url, NULL);
-    config_curl_auth(url_pool, conf);
+    config_curl_auth_validate(url_pool, conf);
 
     /* get response code - 200-299 range OK, 404 NOT OK, 500 ERROR */
     curl_perform_status = curl_easy_perform(conf->session);

@@ -46,6 +46,14 @@ RestAuthServicePassword mysitepassword
 # using the given credentials. in the example, this is the same as
 # setting RestAuthAddress to http://mysite:mysitepassword@localhost:5000/
 
+# optionally, if the connection to the provider is done via SSL and you
+# don't want to check the certificate (N.B. ideally, you should create a
+# self-signed certificate and trust your own CA instead of using this option),
+# set this to off.
+#
+# defaults to on
+RestAuthServiceValidateCertificate on
+
 # optionally, a group the user must belong to
 RestAuthGroup admins
 # an additional request will be dispatched:
