@@ -41,16 +41,15 @@ typedef struct {
     char *url;
     CURL *session;
     int forward_ip;
-    char *group;
     char *service_user;
     char *service_password;
     int service_validate_cert;
 
-} authn_restauth_config;
+} authnz_restauth_config;
 
 
 static apr_status_t restauth_cleanup(void *data) {
-    authn_restauth_config *conf = (authn_restauth_config *)data;
+    authnz_restauth_config *conf = (authnz_restauth_config *)data;
 
     if (conf->session) {
         curl_easy_cleanup(conf->session);
@@ -60,13 +59,12 @@ static apr_status_t restauth_cleanup(void *data) {
     return 0;
 }
 
-static void *create_authn_restauth_dir_config(apr_pool_t *p, char *d)
+static void *create_authnz_restauth_dir_config(apr_pool_t *p, char *d)
 {
-    authn_restauth_config *conf = apr_palloc(p, sizeof(*conf));
+    authnz_restauth_config *conf = apr_palloc(p, sizeof(*conf));
     conf->url = NULL;
     conf->session = NULL;
     conf->forward_ip = 0;
-    conf->group = NULL;
 
     conf->service_user = NULL;
     conf->service_password = NULL;
@@ -85,7 +83,7 @@ static const char *restauth_set_locator(cmd_parms *cmd,
         return "URL not specified";
 
     /* init url */
-    authn_restauth_config *conf = (authn_restauth_config *)conf_data;
+    authnz_restauth_config *conf = (authnz_restauth_config *)conf_data;
     conf->url = apr_psprintf(cmd->pool, "%s%s", arg,
 			     /* add trailing slash if omitted */
 			     (arg[strlen(arg)-1] == '/')?"":"/");
@@ -99,31 +97,28 @@ static const char *restauth_set_locator(cmd_parms *cmd,
     return NULL;
 }
 
-static const command_rec authn_restauth_cmds[] =
+static const command_rec authnz_restauth_cmds[] =
 {
     /* for now, the one protocol implemented is:
        - RestAuth-POST: POST AuthURL/users/<user>/ (with password=<password> as www-urlencoded POST data)
-                        GET AuthURL/groups/<group>/users/<user>/ to check if user is in a group
+                        GET AuthURL/groups/<group>/users/<user>/ to check if user is in a group ("Requires restauth-group")
      */
-    AP_INIT_ITERATE("RestAuthAddress", restauth_set_locator, NULL, OR_AUTHCFG,
+    AP_INIT_TAKE1("RestAuthAddress", restauth_set_locator, NULL, OR_AUTHCFG,
         "The URL of the authentication service"),
-    AP_INIT_ITERATE("RestAuthGroup", ap_set_string_slot,
-        (void *)APR_OFFSETOF(authn_restauth_config, group), OR_AUTHCFG, /* TODO: maybe use Require (authz) */
-        "The group to be validated against"),
 
-    AP_INIT_ITERATE("RestAuthServiceUser", ap_set_string_slot,
-        (void *)APR_OFFSETOF(authn_restauth_config, service_user), OR_AUTHCFG,
+    AP_INIT_TAKE1("RestAuthServiceUser", ap_set_string_slot,
+        (void *)APR_OFFSETOF(authnz_restauth_config, service_user), OR_AUTHCFG,
         "The username for the RestAuth service"),
-    AP_INIT_ITERATE("RestAuthServicePassword", ap_set_string_slot,
-        (void *)APR_OFFSETOF(authn_restauth_config, service_password), OR_AUTHCFG,
+    AP_INIT_TAKE1("RestAuthServicePassword", ap_set_string_slot,
+        (void *)APR_OFFSETOF(authnz_restauth_config, service_password), OR_AUTHCFG,
         "The password for the RestAuth service"),
 
     AP_INIT_FLAG("RestAuthServiceValidateCertificate", ap_set_flag_slot,
-        (void *)APR_OFFSETOF(authn_restauth_config, service_validate_cert), OR_AUTHCFG,
+        (void *)APR_OFFSETOF(authnz_restauth_config, service_validate_cert), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
 
     AP_INIT_FLAG("RestAuthForwardIP", ap_set_flag_slot,
-        (void *)APR_OFFSETOF(authn_restauth_config, forward_ip), OR_AUTHCFG,
+        (void *)APR_OFFSETOF(authnz_restauth_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
     {NULL}
 };
@@ -172,7 +167,7 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
 }
 
 /* function to set the curl authentication and certificate validation options */
-static void config_curl_auth_validate(apr_pool_t *p, authn_restauth_config *conf) {
+static void config_curl_auth_validate(apr_pool_t *p, authnz_restauth_config *conf) {
 
     /* certificate validation */
     curl_easy_setopt(conf->session, CURLOPT_SSL_VERIFYPEER, conf->service_validate_cert);
@@ -198,36 +193,34 @@ static void restauth_server_error(request_rec *r, const char *url, int curl_stat
                           "RestAuth server failed on request: %s [CURL status: %s, HTTP code: %d]", url, curl_easy_strerror(curl_status), http_code);
 }
 
-module AP_MODULE_DECLARE_DATA authn_restauth_module;
+module AP_MODULE_DECLARE_DATA authnz_restauth_module;
 
-static authn_status check_restauth(request_rec *r, const char *user,
+static authn_status authn_restauth_check(request_rec *r, const char *user,
                                     const char *sent_pw)
 {
-    authn_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authn_restauth_module);
+    authnz_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authnz_restauth_module);
 
     /* ignore if not configured */
     if (!conf->url)
         return AUTH_USER_NOT_FOUND;
 
     /* create url and storage */
-    apr_pool_t *url_pool = NULL;
     char *url;
-    apr_pool_create(&url_pool, r->pool);
 
     /* fetch client ip */
     char *ip = r->connection->remote_ip;
 
-    char *post_data = apr_psprintf(url_pool, "password=%s%s%s",
-				   url_pescape(url_pool, sent_pw),
+    char *post_data = apr_psprintf(r->pool, "password=%s%s%s",
+                                   url_pescape(r->pool, sent_pw),
 				   /* ip data if requested */
 				   (conf->forward_ip)?"&ip=":"",
-				   (conf->forward_ip)?url_pescape(url_pool, ip):"");
+                                   (conf->forward_ip)?url_pescape(r->pool, ip):"");
 
-    url	= apr_psprintf(url_pool, "%susers/%s/", conf->url,
-		       url_pescape(url_pool, user));
+    url	= apr_psprintf(r->pool, "%susers/%s/", conf->url,
+                       url_pescape(r->pool, user));
 
     config_curl_session(conf->session, url, post_data);
-    config_curl_auth_validate(url_pool, conf);
+    config_curl_auth_validate(r->pool, conf);
 
     int curl_perform_status = 0;
     int curl_info_status = 0;
@@ -249,8 +242,6 @@ static authn_status check_restauth(request_rec *r, const char *user,
         if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404))
             restauth_server_error(r, url, curl_perform_status, curl_http_code, NULL);
 
-    	apr_pool_destroy(url_pool);
-
         /* fail if request fails / returns internal server error */
         if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404))
             return AUTH_GENERAL_ERROR;
@@ -258,22 +249,46 @@ static authn_status check_restauth(request_rec *r, const char *user,
     	return AUTH_DENIED;
     }
 
-    /* if no group is set, grant access */
-    if (!conf->group) {
-    	apr_pool_destroy(url_pool);
-	return AUTH_GRANTED;
-    }
+    /* grant access */
+    return AUTH_GRANTED;
+}
 
-    /* user exists with valid password, now check if user is in group */
+/* Old constants, new constants... */
+#if APACHE_OLDER_THAN(2,3)
+#define RESTAUTH_AUTHZ_STATUS_TYPE int
+#define RESTAUTH_AUTHZ_GRANTED OK
+#define RESTAUTH_AUTHZ_DENIED HTTP_UNAUTHORIZED /* TODO: authoritive flag? */
+#define RESTAUTH_AUTHZ_ERROR HTTP_INTERNAL_SERVER_ERROR
+#else
+#define RESTAUTH_AUTHZ_STATUS_TYPE authz_status
+#define RESTAUTH_AUTHZ_GRANTED AUTHZ_GRANTED
+#define RESTAUTH_AUTHZ_DENIED AUTHZ_DENIED
+#define RESTAUTH_AUTHZ_ERROR AUTHZ_DENIED
+#endif
+
+static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const char *group) {
+    authnz_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authnz_restauth_module);
+    int curl_perform_status;
+    int curl_info_status;
+    int curl_status;
+    long curl_http_code;
+
+    /* assume user authenticated. check if user is in group */
     /* compile GET url/parameters */
 
-    url = apr_psprintf(url_pool, "%sgroups/%s/users/%s/", conf->url,
-                         url_pescape(url_pool, conf->group),
-                         url_pescape(url_pool, user));
+    char *user = r->user;
+
+    /* no user? shouldn't happen! */
+    if (!user)
+        return RESTAUTH_AUTHZ_ERROR;
+
+    char *url = apr_psprintf(r->pool, "%sgroups/%s/users/%s/", conf->url,
+                         url_pescape(r->pool, group),
+                         url_pescape(r->pool, user));
 
     /* set request parameters */
     config_curl_session(conf->session, url, NULL);
-    config_curl_auth_validate(url_pool, conf);
+    config_curl_auth_validate(r->pool, conf);
 
     /* get response code - 200-299 range OK, 404 NOT OK, 500 ERROR */
     curl_perform_status = curl_easy_perform(conf->session);
@@ -284,52 +299,114 @@ static authn_status check_restauth(request_rec *r, const char *user,
     if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404))
         restauth_server_error(r, url, curl_perform_status, curl_http_code, NULL);
 
-    apr_pool_destroy(url_pool);
     curl_easy_reset(conf->session);
 
     /* group exists, and user is in the specified group */
     if (curl_status == CURLE_OK && (curl_http_code <= 299 && curl_http_code >= 200))
-    	return AUTH_GRANTED;
+        return RESTAUTH_AUTHZ_GRANTED;
     else if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404)) {
         /* fail if request fails / returns internal server error */
-        return AUTH_GENERAL_ERROR;
+        return RESTAUTH_AUTHZ_ERROR;
     }
     else
-        return AUTH_DENIED;
+        return RESTAUTH_AUTHZ_DENIED;
 }
 
 /* module stuff */
 
 static const authn_provider authn_restauth_provider =
 {
-    &check_restauth,
+    &authn_restauth_check,
     NULL
 };
+
+#if APACHE_OLDER_THAN(2,3)
+/* This wrapper is used by Apache versions <2.3 to filter out the
+   first Require directive starting with "restauth-group". */
+static int authz_restauth_provider_wrapper(request_rec *r) {
+
+    /* loop through all the Requires directives... */
+    const apr_array_header_t *reqs_arr = ap_requires(r);
+    require_line *reqs;
+    int i;
+    int m = r->method_number;
+
+    if (!reqs_arr)
+        return DECLINED;
+
+    reqs = (require_line *)reqs_arr->elts;
+    for (i = 0; i < reqs_arr->nelts; i++) {
+        const char *requirement;
+        char *w;
+
+        if (!(reqs[i].method_mask & (AP_METHOD_BIT << m)))
+            continue;
+
+        requirement = reqs[i].requirement;
+        w = ap_getword_white(r->pool, &requirement);
+
+        if (!strcasecmp(w, "restauth-group"))
+            return authz_restauth_check(r, requirement);
+    }
+
+    return DECLINED;
+}
+
+#else
+static const authz_provider authz_restauth_provider =
+{
+     &authz_restauth_check,
+     NULL
+};
+#endif
 
 static void register_hooks(apr_pool_t *p)
 {
 #if APACHE_OLDER_THAN(2,3)
+
+    /* <2.1 not supported! */
+#if APACHE_OLDER_THAN(2,1)
+#error "mod_authz_user not implemented before 2.1, support for earlier mechanism not implemented"
+#endif
+
+    static const char * const aszPost[]={ "mod_authz_user.c", NULL };
+
+    /* register authn provider */
     ap_register_provider(p, AUTHN_PROVIDER_GROUP, "restauth", "0",
                          &authn_restauth_provider);
+
+    /* perform "valid-user" and "user" (mod_authz_user.c) authorization first */
+    ap_hook_auth_checker(&authz_restauth_provider_wrapper, NULL, aszPost, APR_HOOK_MIDDLE);
+
 #else
+    /* register authn provider */
     ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "restauth",
                               AUTHN_PROVIDER_VERSION,
                               &authn_restauth_provider, AP_AUTH_INTERNAL_PER_CONF);
+
+
+    /* register authz provider */
+    ap_register_provider(p, AUTHZ_PROVIDER_GROUP, "restauth-group",
+                         AUTHZ_PROVIDER_VERSION,
+                         &authz_restauth_provider,
+                         AP_AUTH_INTERNAL_PER_CONF);
+
+
 #endif
 }
 
 #if APACHE_OLDER_THAN(2,3)
-APLOG_USE_MODULE(authn_restauth);
-module AP_MODULE_DECLARE_DATA authn_restauth_module =
+APLOG_USE_MODULE(authnz_restauth);
+module AP_MODULE_DECLARE_DATA authnz_restauth_module =
 #else
-AP_DECLARE_MODULE(authn_restauth) =
+AP_DECLARE_MODULE(authnz_restauth) =
 #endif
 {
     STANDARD20_MODULE_STUFF,
-    create_authn_restauth_dir_config,  /* create config structure per directory */
+    create_authnz_restauth_dir_config,  /* create config structure per directory */
     NULL,                         /* dir merger ensure strictness */
     NULL,                         /* server config */
     NULL,                         /* merge server config */
-    authn_restauth_cmds,               /* command apr_table_t */
+    authnz_restauth_cmds,               /* command apr_table_t */
     register_hooks                /* register hooks */
 };
