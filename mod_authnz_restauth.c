@@ -356,7 +356,6 @@ static int authz_restauth_provider_wrapper(request_rec *r) {
 static const authz_provider authz_restauth_provider =
 {
      &authz_restauth_check,
-     NULL
 };
 #endif
 
@@ -386,10 +385,10 @@ static void register_hooks(apr_pool_t *p)
 
 
     /* register authz provider */
-    ap_register_provider(p, AUTHZ_PROVIDER_GROUP, "restauth-group",
-                         AUTHZ_PROVIDER_VERSION,
-                         &authz_restauth_provider,
-                         AP_AUTH_INTERNAL_PER_CONF);
+    ap_register_auth_provider(p, AUTHZ_PROVIDER_GROUP, "restauth-group",
+                              AUTHZ_PROVIDER_VERSION,
+                              &authz_restauth_provider,
+                              AP_AUTH_INTERNAL_PER_CONF);
 
 
 #endif
