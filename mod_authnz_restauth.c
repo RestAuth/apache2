@@ -282,6 +282,12 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
     if (!user)
         return RESTAUTH_AUTHZ_ERROR;
 
+    /* user, but no url? */
+    if (!conf->url) {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r, "restauth-group authorization attempted with no RestAuthAddress specified");
+        return RESTAUTH_AUTHZ_ERROR;
+    }
+
     char *url = apr_psprintf(r->pool, "%sgroups/%s/users/%s/", conf->url,
                          url_pescape(r->pool, group),
                          url_pescape(r->pool, user));
