@@ -3,7 +3,7 @@ Section: php
 Priority: extra
 Maintainer: Mathias Ertl <apt-repository@fsinf.at>
 Build-Depends: debhelper (>= 7.0.50), git-core, restauth-common, apache2-threaded-dev, libcurl3 (>= 7.18), libcurl4-gnutls-dev
-Standards-Version: 3.8.4
+Standards-Version: 3.9.1
 Homepage: http://fs.fsinf.at/wiki/RestAuth/Apache
 
 Package: libapache2-mod-authn-restauth
