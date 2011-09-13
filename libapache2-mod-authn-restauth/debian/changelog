@@ -1,4 +1,4 @@
-libapache2-mod-authn-restauth (1:0.0-27-g0c43653-1) maverick; urgency=low
+libapache2-mod-authn-restauth (1:0.0-31-g04976dd-1) wheezy; urgency=low
 
   * move package source to git
   * override dh_auto_test
