@@ -1,11 +1,9 @@
 #!/usr/bin/make -f
 
 # check where we are running:
-DIST_CODENAME=$(shell lsb_release -sc)
-QUILT_VERSION = $(shell dpkg-query -f $$\{Version\} -W quilt | sed 's/.*://')
 DH_ARGS = --with quilt
 DEB_UPSTREAM=$(shell dpkg-parsechangelog | grep '^Source:' | sed  -e 's/[^ ]* //' -e 's/[^:]://')
-GIT_URL=git://git.fsinf.at/restauth/apache.git
+GIT_URL=https://git.fsinf.at/restauth/apache.git
 
 prepare: cleanup 
 	dh_testdir
@@ -14,9 +12,7 @@ prepare: cleanup
 cleanup: clean
 	dh_testdir
 	rm -f debian/patches/.dpkg-source-applied
-	rm -f debian/patches/debian-changes*
-	-quilt delete -r debian-changes-${VERSION}-1
-	ls -A | grep --invert-match "^debian" | grep --invert-match "^.svn" | xargs rm -rf
+	ls -A | grep --invert-match "^debian" | xargs rm -rf
 	dh_clean
 
 %:
