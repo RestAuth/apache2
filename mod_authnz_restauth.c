@@ -138,9 +138,10 @@ static char* url_pescape(apr_pool_t *p, const char *str)
         else if (*str == ' ')
             *escaped_str = '+';
         else {
+            unsigned char str_val = (unsigned char)(*str);
             *escaped_str = '%';
-            *(escaped_str+1) = ((*str/16) < 10) ? ('0' + *str/16) : ('A' - 10 + *str/16);
-            *(escaped_str+2) = ((*str%16) < 10) ? ('0' + *str%16) : ('A' - 10 + *str%16);
+            *(escaped_str+1) = ((str_val/16) < 10) ? ('0' + str_val/16) : ('A' - 10 + str_val/16);
+            *(escaped_str+2) = ((str_val%16) < 10) ? ('0' + str_val%16) : ('A' - 10 + str_val%16);
             escaped_str += 2;
         }
 
