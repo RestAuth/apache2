@@ -32,6 +32,7 @@
 #include "mod_auth.h"
 
 #include <curl/curl.h> /* muhaha */
+#include <libmemcached/memcached.h>
 
 /* configuration parameters */
 
@@ -44,6 +45,7 @@ typedef struct {
     char *service_user;
     char *service_password;
     int service_validate_cert;
+	memcached_st *cache;
 
 } authnz_restauth_config;
 
@@ -55,6 +57,13 @@ static apr_status_t restauth_cleanup(void *data) {
         curl_easy_cleanup(conf->session);
         conf->session = NULL;
     }
+
+	if (conf->cache) {
+		memcached_return_t rv;
+		rv = memcached_flush (conf->cache, 0);
+		memcached_free (conf->cache);
+		conf->cache = NULL;
+	}
 
     return 0;
 }
@@ -69,6 +78,8 @@ static void *create_authnz_restauth_dir_config(apr_pool_t *p, char *d)
     conf->service_user = NULL;
     conf->service_password = NULL;
     conf->service_validate_cert = 1;
+
+	conf->cache = NULL;
 
     /* register cleanup handler */
     apr_pool_cleanup_register(p, conf, restauth_cleanup, restauth_cleanup);
@@ -94,6 +105,14 @@ static const char *restauth_set_locator(cmd_parms *cmd,
         if (!conf->session)
             return "Could not initialize HTTP request library";
     }
+
+	if (!conf->cache) {
+		const char *config_string= "--SERVER=localhost";
+		conf->cache = memcached (config_string, strlen(config_string));
+		if (conf->cache == NULL) {
+			return "Could not create memcache struct!";
+		}
+	}
     return NULL;
 }
 
@@ -205,6 +224,25 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     if (!conf->url)
         return AUTH_USER_NOT_FOUND;
 
+	if (!conf->cache)
+		return AUTH_USER_NOT_FOUND;
+
+	/* check memcached for value, if found return it instead of querying auth server */
+	memcached_return_t rv;
+	uint32_t flags = 0;
+	size_t cachevalue_len = 1024; // max password length
+	char *cachevalue;
+	char *cachekey_user = apr_psprintf (r->pool, "users/%s/", user);
+	cachevalue = memcached_get (conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
+	if (cachevalue != NULL) {
+		if (strcmp(cachevalue, sent_pw) == 0) {
+			free(cachevalue);
+			// saved password is correct
+			return AUTH_GRANTED;
+		}
+		free(cachevalue);
+	}
+
     /* create url and storage */
     char *url;
 
@@ -250,6 +288,9 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     	return AUTH_DENIED;
     }
 
+	time_t timer = time(NULL);
+	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), sent_pw, strlen(sent_pw), timer+300, 0); // will be saved for 300 seconds
+
     /* grant access */
     return AUTH_GRANTED;
 }
@@ -289,6 +330,22 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
         return RESTAUTH_AUTHZ_ERROR;
     }
 
+	/* check memcached for value, if found return it instead of querying auth server */
+	memcached_return_t rv;
+	uint32_t flags = 0;
+	size_t cachevalue_len = 3; // max password length
+	char *cachevalue;
+	char *cachekey_usergroup = apr_psprintf (r->pool, "groups/%s/users/%s/", user, group);
+	cachevalue = memcached_get (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), &cachevalue_len, &flags, &rv);
+	if (cachevalue != NULL) {
+		if (strncmp(cachevalue, "yes", 3) == 0) {
+			free(cachevalue);
+			// user is in group
+			return RESTAUTH_AUTHZ_GRANTED;
+		}
+		free(cachevalue);
+	}
+
     char *url = apr_psprintf(r->pool, "%sgroups/%s/users/%s/", conf->url,
                          url_pescape(r->pool, group),
                          url_pescape(r->pool, user));
@@ -310,7 +367,11 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 
     /* group exists, and user is in the specified group */
     if (curl_status == CURLE_OK && (curl_http_code <= 299 && curl_http_code >= 200))
+	{
+		time_t timer = time(NULL);
+		rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+300, 0); // will be saved for 300 seconds
         return RESTAUTH_AUTHZ_GRANTED;
+	}
     else if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404)) {
         /* fail if request fails / returns internal server error */
         return RESTAUTH_AUTHZ_ERROR;
