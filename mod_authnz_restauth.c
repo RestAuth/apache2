@@ -59,7 +59,7 @@ static apr_status_t restauth_cleanup(void *data) {
     }
 
 	if (conf->cache) {
-		memcached_return_t rv;
+		memcached_return rv;
 		rv = memcached_flush (conf->cache, 0);
 		memcached_free (conf->cache);
 		conf->cache = NULL;
@@ -107,11 +107,14 @@ static const char *restauth_set_locator(cmd_parms *cmd,
     }
 
 	if (!conf->cache) {
-		const char *config_string= "--SERVER=localhost";
-		conf->cache = memcached (config_string, strlen(config_string));
+		// const char *config_string= "--SERVER=localhost";
+		// conf->cache = memcached (config_string, strlen(config_string));
+		memcached_return rv;
+		conf->cache = memcached_create(NULL);
 		if (conf->cache == NULL) {
 			return "Could not create memcache struct!";
 		}
+		rv = memcached_server_add(conf->cache, "localhost", 11211);
 	}
     return NULL;
 }
@@ -228,7 +231,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 		return AUTH_USER_NOT_FOUND;
 
 	/* check memcached for value, if found return it instead of querying auth server */
-	memcached_return_t rv;
+	memcached_return rv;
 	uint32_t flags = 0;
 	size_t cachevalue_len = 1024; // max password length
 	char *cachevalue;
@@ -331,7 +334,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
     }
 
 	/* check memcached for value, if found return it instead of querying auth server */
-	memcached_return_t rv;
+	memcached_return rv;
 	uint32_t flags = 0;
 	size_t cachevalue_len = 3; // max password length
 	char *cachevalue;
