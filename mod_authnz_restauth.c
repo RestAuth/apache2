@@ -33,6 +33,7 @@
 
 #include <curl/curl.h> /* muhaha */
 #include <libmemcached/memcached.h>
+#include <openssl/sha.h>
 
 /* configuration parameters */
 
@@ -235,10 +236,12 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	uint32_t flags = 0;
 	size_t cachevalue_len = 1024; // max password length
 	char *cachevalue;
-	char *cachekey_user = apr_psprintf (r->pool, "users/%s/", user);
+	char *cachekey_user = apr_psprintf (r->pool, "restauth/fsinf/users/%s/", user);
 	cachevalue = memcached_get (conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
+	unsigned char pwhash[20];
+	SHA1(sent_pw, strlen(sent_pw), pwhash);
 	if (cachevalue != NULL) {
-		if (strcmp(cachevalue, sent_pw) == 0) {
+		if (strcmp(cachevalue, pwhash) == 0) {
 			free(cachevalue);
 			// saved password is correct
 			return AUTH_GRANTED;
@@ -292,7 +295,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     }
 
 	time_t timer = time(NULL);
-	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), sent_pw, strlen(sent_pw), timer+300, 0); // will be saved for 300 seconds
+	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, strlen(pwhash), timer+300, 0); // will be saved for 300 seconds
 
     /* grant access */
     return AUTH_GRANTED;
@@ -338,7 +341,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 	uint32_t flags = 0;
 	size_t cachevalue_len = 3; // max password length
 	char *cachevalue;
-	char *cachekey_usergroup = apr_psprintf (r->pool, "groups/%s/users/%s/", user, group);
+	char *cachekey_usergroup = apr_psprintf (r->pool, "restauth/fsinf/groups/%s/users/%s/", user, group);
 	cachevalue = memcached_get (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), &cachevalue_len, &flags, &rv);
 	if (cachevalue != NULL) {
 		if (strncmp(cachevalue, "yes", 3) == 0) {
