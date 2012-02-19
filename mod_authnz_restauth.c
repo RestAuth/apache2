@@ -253,7 +253,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	/* check memcached for value, if found return it instead of querying auth server */
 	memcached_return rv;
 	uint32_t flags = 0;
-	size_t cachevalue_len = 1024; /* max password length */
+	size_t cachevalue_len = 20;
 	char *cachevalue;
 	char *cachekey_user = apr_psprintf(r->pool, "restauth/users/%s/", user);
 	cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
@@ -261,7 +261,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	unsigned char pwhash[20];
 	SHA1(sent_pw, strlen(sent_pw), pwhash);
 	if (cachevalue != NULL) {
-		if (strncmp(cachevalue, pwhash, 20) == 0) {
+		if (memcmp(cachevalue, pwhash, 20) == 0) {
 			free(cachevalue);
 			/* saved password is correct */
 			return AUTH_GRANTED;
