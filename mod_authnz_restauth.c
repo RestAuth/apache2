@@ -247,7 +247,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	unsigned char pwhash[20];
 	SHA1(sent_pw, strlen(sent_pw), pwhash);
 	if (cachevalue != NULL) {
-		if (strcmp(cachevalue, pwhash) == 0) {
+		if (strncmp(cachevalue, pwhash, 20) == 0) {
 			free(cachevalue);
 			// saved password is correct
 			return AUTH_GRANTED;
@@ -301,7 +301,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     }
 
 	time_t timer = time(NULL);
-	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, strlen(pwhash), timer+(conf->cacheexpiry), 0);
+	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, 20, timer+(conf->cacheexpiry), 0);
 
     /* grant access */
     return AUTH_GRANTED;
