@@ -242,7 +242,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	uint32_t flags = 0;
 	size_t cachevalue_len = 1024; // max password length
 	char *cachevalue;
-	char *cachekey_user = apr_psprintf (r->pool, "restauth/fsinf/users/%s/", user);
+	char *cachekey_user = apr_psprintf (r->pool, "restauth/users/%s/", user);
 	cachevalue = memcached_get (conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
 	unsigned char pwhash[20];
 	SHA1(sent_pw, strlen(sent_pw), pwhash);
@@ -347,7 +347,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 	uint32_t flags = 0;
 	size_t cachevalue_len = 3; // max password length
 	char *cachevalue;
-	char *cachekey_usergroup = apr_psprintf (r->pool, "restauth/fsinf/groups/%s/users/%s/", user, group);
+	char *cachekey_usergroup = apr_psprintf (r->pool, "restauth/groups/%s/users/%s/", user, group);
 	cachevalue = memcached_get (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), &cachevalue_len, &flags, &rv);
 	if (cachevalue != NULL) {
 		if (strncmp(cachevalue, "yes", 3) == 0) {
