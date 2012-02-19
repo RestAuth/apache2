@@ -47,6 +47,7 @@ typedef struct {
     char *service_password;
     int service_validate_cert;
 	memcached_st *cache;
+	int cacheexpiry;
 
 } authnz_restauth_config;
 
@@ -81,6 +82,7 @@ static void *create_authnz_restauth_dir_config(apr_pool_t *p, char *d)
     conf->service_validate_cert = 1;
 
 	conf->cache = NULL;
+	conf->cacheexpiry = 300;
 
     /* register cleanup handler */
     apr_pool_cleanup_register(p, conf, restauth_cleanup, restauth_cleanup);
@@ -143,6 +145,10 @@ static const command_rec authnz_restauth_cmds[] =
     AP_INIT_FLAG("RestAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authnz_restauth_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
+
+    AP_INIT_TAKE1("RestAuthCacheExpiry", ap_set_int_slot,
+        (void *)APR_OFFSETOF(authnz_restauth_config, cacheexpiry), OR_AUTHCFG,
+        "Time in seconds after which memcached-entries expire"),
     {NULL}
 };
 
@@ -295,7 +301,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     }
 
 	time_t timer = time(NULL);
-	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, strlen(pwhash), timer+300, 0); // will be saved for 300 seconds
+	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, strlen(pwhash), timer+(conf->cacheexpiry), 0);
 
     /* grant access */
     return AUTH_GRANTED;
@@ -375,7 +381,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
     if (curl_status == CURLE_OK && (curl_http_code <= 299 && curl_http_code >= 200))
 	{
 		time_t timer = time(NULL);
-		rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+300, 0); // will be saved for 300 seconds
+		rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+(conf->cacheexpiry), 0);
         return RESTAUTH_AUTHZ_GRANTED;
 	}
     else if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404)) {
