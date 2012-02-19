@@ -13,6 +13,7 @@
 /*
  * This file was written/modified by:
  * Mihai Ghete <viper@fsinf.at>
+ * David Kaufmann <astra@fsinf.at>
  *
  */
 
@@ -32,8 +33,11 @@
 #include "mod_auth.h"
 
 #include <curl/curl.h> /* muhaha */
+
+#ifndef NO_MEMCACHED
 #include <libmemcached/memcached.h>
 #include <openssl/sha.h>
+#endif
 
 /* configuration parameters */
 
@@ -46,8 +50,9 @@ typedef struct {
     char *service_user;
     char *service_password;
     int service_validate_cert;
-	memcached_st *cache;
-
+#ifndef NO_MEMCACHED    
+    memcached_st *cache;
+#endif
 } authnz_restauth_config;
 
 
@@ -59,12 +64,14 @@ static apr_status_t restauth_cleanup(void *data) {
         conf->session = NULL;
     }
 
-	if (conf->cache) {
-		memcached_return rv;
-		rv = memcached_flush (conf->cache, 0);
-		memcached_free (conf->cache);
-		conf->cache = NULL;
-	}
+#ifndef NO_MEMCACHED
+   if (conf->cache) {
+       memcached_return rv;
+       rv = memcached_flush (conf->cache, 0);
+       memcached_free (conf->cache);
+       conf->cache = NULL;
+   }
+#endif
 
     return 0;
 }
@@ -80,7 +87,9 @@ static void *create_authnz_restauth_dir_config(apr_pool_t *p, char *d)
     conf->service_password = NULL;
     conf->service_validate_cert = 1;
 
-	conf->cache = NULL;
+#ifndef NO_MEMCACHED
+    conf->cache = NULL;
+#endif
 
     /* register cleanup handler */
     apr_pool_cleanup_register(p, conf, restauth_cleanup, restauth_cleanup);
@@ -107,16 +116,17 @@ static const char *restauth_set_locator(cmd_parms *cmd,
             return "Could not initialize HTTP request library";
     }
 
-	if (!conf->cache) {
-		// const char *config_string= "--SERVER=localhost";
-		// conf->cache = memcached (config_string, strlen(config_string));
-		memcached_return rv;
-		conf->cache = memcached_create(NULL);
-		if (conf->cache == NULL) {
-			return "Could not create memcache struct!";
-		}
-		rv = memcached_server_add(conf->cache, "localhost", 11211);
-	}
+#ifndef NO_MEMCACHED
+    /* init memcached session */
+    if (!conf->cache) {
+        memcached_return rv;
+        conf->cache = memcached_create(NULL);
+        if (!conf->cache) {
+          return "Could not create memcache struct!";
+        }
+        rv = memcached_server_add(conf->cache, "localhost", 11211);
+    }
+#endif
     return NULL;
 }
 
@@ -228,26 +238,28 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     if (!conf->url)
         return AUTH_USER_NOT_FOUND;
 
+#ifndef NO_MEMCACHED
 	if (!conf->cache)
 		return AUTH_USER_NOT_FOUND;
 
 	/* check memcached for value, if found return it instead of querying auth server */
 	memcached_return rv;
 	uint32_t flags = 0;
-	size_t cachevalue_len = 1024; // max password length
+	size_t cachevalue_len = 1024; /* max password length */
 	char *cachevalue;
-	char *cachekey_user = apr_psprintf (r->pool, "restauth/fsinf/users/%s/", user);
-	cachevalue = memcached_get (conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
+	char *cachekey_user = apr_psprintf(r->pool, "restauth/users/%s/", user);
+	cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
 	unsigned char pwhash[20];
 	SHA1(sent_pw, strlen(sent_pw), pwhash);
 	if (cachevalue != NULL) {
 		if (strcmp(cachevalue, pwhash) == 0) {
 			free(cachevalue);
-			// saved password is correct
+			/* saved password is correct */
 			return AUTH_GRANTED;
 		}
 		free(cachevalue);
 	}
+#endif
 
     /* create url and storage */
     char *url;
@@ -294,8 +306,10 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     	return AUTH_DENIED;
     }
 
+#ifndef NO_MEMCACHED
 	time_t timer = time(NULL);
 	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, strlen(pwhash), timer+300, 0); // will be saved for 300 seconds
+#endif
 
     /* grant access */
     return AUTH_GRANTED;
@@ -336,12 +350,13 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
         return RESTAUTH_AUTHZ_ERROR;
     }
 
+#ifndef NO_MEMCACHED
 	/* check memcached for value, if found return it instead of querying auth server */
 	memcached_return rv;
 	uint32_t flags = 0;
 	size_t cachevalue_len = 3; // max password length
 	char *cachevalue;
-	char *cachekey_usergroup = apr_psprintf (r->pool, "restauth/fsinf/groups/%s/users/%s/", user, group);
+	char *cachekey_usergroup = apr_psprintf (r->pool, "restauth/groups/%s/users/%s/", user, group);
 	cachevalue = memcached_get (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), &cachevalue_len, &flags, &rv);
 	if (cachevalue != NULL) {
 		if (strncmp(cachevalue, "yes", 3) == 0) {
@@ -351,6 +366,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 		}
 		free(cachevalue);
 	}
+#endif
 
     char *url = apr_psprintf(r->pool, "%sgroups/%s/users/%s/", conf->url,
                          url_pescape(r->pool, group),
@@ -374,8 +390,10 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
     /* group exists, and user is in the specified group */
     if (curl_status == CURLE_OK && (curl_http_code <= 299 && curl_http_code >= 200))
 	{
+#ifndef NO_MEMCACHED
 		time_t timer = time(NULL);
 		rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+300, 0); // will be saved for 300 seconds
+#endif
         return RESTAUTH_AUTHZ_GRANTED;
 	}
     else if (curl_status != CURLE_OK || (curl_http_code >= 400 && curl_http_code != 404)) {
