@@ -51,7 +51,8 @@ typedef struct {
     char *service_password;
     int service_validate_cert;
 #ifndef NO_MEMCACHED    
-    memcached_st *cache;
+	memcached_st *cache;
+	int cache_expiry;
 #endif
 } authnz_restauth_config;
 
@@ -88,7 +89,8 @@ static void *create_authnz_restauth_dir_config(apr_pool_t *p, char *d)
     conf->service_validate_cert = 1;
 
 #ifndef NO_MEMCACHED
-    conf->cache = NULL;
+	conf->cache = NULL;
+	conf->cache_expiry = 300;
 #endif
 
     /* register cleanup handler */
@@ -153,6 +155,12 @@ static const command_rec authnz_restauth_cmds[] =
     AP_INIT_FLAG("RestAuthForwardIP", ap_set_flag_slot,
         (void *)APR_OFFSETOF(authnz_restauth_config, forward_ip), OR_AUTHCFG,
         "Limited to 'on' or 'off'"),
+
+#ifndef NO_MEMCACHED
+    AP_INIT_TAKE1("RestAuthCacheExpiry", ap_set_int_slot,
+        (void *)APR_OFFSETOF(authnz_restauth_config, cache_expiry), OR_AUTHCFG,
+        "Time in seconds after which memcached entries expire"),
+#endif
     {NULL}
 };
 
@@ -249,10 +257,11 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	char *cachevalue;
 	char *cachekey_user = apr_psprintf(r->pool, "restauth/users/%s/", user);
 	cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
+	
 	unsigned char pwhash[20];
 	SHA1(sent_pw, strlen(sent_pw), pwhash);
 	if (cachevalue != NULL) {
-		if (strcmp(cachevalue, pwhash) == 0) {
+		if (strncmp(cachevalue, pwhash, 20) == 0) {
 			free(cachevalue);
 			/* saved password is correct */
 			return AUTH_GRANTED;
@@ -308,7 +317,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 
 #ifndef NO_MEMCACHED
 	time_t timer = time(NULL);
-	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, strlen(pwhash), timer+300, 0); // will be saved for 300 seconds
+	rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, 20, timer+(conf->cache_expiry), 0);
 #endif
 
     /* grant access */
@@ -392,7 +401,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 	{
 #ifndef NO_MEMCACHED
 		time_t timer = time(NULL);
-		rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+300, 0); // will be saved for 300 seconds
+		rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+(conf->cache_expiry), 0);
 #endif
         return RESTAUTH_AUTHZ_GRANTED;
 	}
