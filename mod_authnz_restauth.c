@@ -258,9 +258,9 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	char *cachekey_user = apr_psprintf(r->pool, "restauth/users/%s/", user);
 	cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
 	
-	unsigned char pwhash[20];
-	SHA1(sent_pw, strlen(sent_pw), pwhash);
 	if (cachevalue != NULL) {
+	  unsigned char pwhash[20];
+	  SHA1(sent_pw, strlen(sent_pw), pwhash);
 		if (strncmp(cachevalue, pwhash, 20) == 0) {
 			free(cachevalue);
 			/* saved password is correct */
