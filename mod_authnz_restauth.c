@@ -118,19 +118,47 @@ static const char *restauth_set_locator(cmd_parms *cmd,
             return "Could not initialize HTTP request library";
     }
 
+    return NULL;
+}
+
 #ifndef NO_MEMCACHED
-    /* init memcached session */
+static const char *restauth_set_cache(cmd_parms *cmd,
+									void *conf_data, const char *arg)
+{
+	if (!*arg) {
+		return "Address not specified";
+	}
+
+	authnz_restauth_config *conf = (authnz_restauth_config *)conf_data;
+
+	/* init memcached session if not already initialized */
     if (!conf->cache) {
         memcached_return rv;
         conf->cache = memcached_create(NULL);
         if (!conf->cache) {
           return "Could not create memcache struct!";
         }
-        rv = memcached_server_add(conf->cache, "localhost", 11211);
     }
-#endif
-    return NULL;
+
+	/* add memcached host */
+	if (conf->cache) {
+		char *host;
+		int port;
+		int res;
+		if ((host = malloc(128)) == NULL) {
+			return "Could not allocate memory for host";
+		}
+		if ((res = sscanf(arg, "%127[^:]:%u", host, &port)) != 2){
+			return apr_psprintf(cmd->pool, "Could not parse host \"%s\" (%i parsed: host: %s port: %i)", arg, res, host, port);
+		}
+        memcached_return rv;
+        rv = memcached_server_add(conf->cache, host, port);
+		free(host);
+	}
+
+	return NULL;
 }
+#endif
 
 static const command_rec authnz_restauth_cmds[] =
 {
@@ -157,6 +185,8 @@ static const command_rec authnz_restauth_cmds[] =
         "Limited to 'on' or 'off'"),
 
 #ifndef NO_MEMCACHED
+    AP_INIT_ITERATE("RestAuthCacheAddress", restauth_set_cache, NULL, OR_AUTHCFG,
+        "The address(es) of the memcached-server(s)"),
     AP_INIT_TAKE1("RestAuthCacheExpiry", ap_set_int_slot,
         (void *)APR_OFFSETOF(authnz_restauth_config, cache_expiry), OR_AUTHCFG,
         "Time in seconds after which memcached entries expire"),
@@ -259,7 +289,19 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
 	
 	unsigned char pwhash[20];
-	SHA1(sent_pw, strlen(sent_pw), pwhash);
+	char *salt = "restauth/pass/";
+	int saltlen = strlen(salt);
+	unsigned char *full_unhashed_string;
+	full_unhashed_string = apr_psprintf(r->pool, "%s%s", salt, sent_pw);
+	SHA1(full_unhashed_string, strlen(full_unhashed_string), pwhash);
+	int i;
+	for (i = 1; i < 1000; i++) {
+		full_unhashed_string = malloc(saltlen+20);
+		memcpy(full_unhashed_string, salt, saltlen);
+		memcpy(full_unhashed_string+saltlen, pwhash, 20);
+		SHA1(full_unhashed_string, saltlen+20, pwhash);
+		free(full_unhashed_string);
+	}
 	if (cachevalue != NULL) {
 		if (memcmp(cachevalue, pwhash, 20) == 0) {
 			free(cachevalue);
