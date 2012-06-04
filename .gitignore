@@ -1,4 +1,7 @@
 *.orig.tar.gz
 *.swp
 *.swo
-libapache2-mod-authn-restauth_0.0-31-g04976dd-1_amd64.build
+*.la
+.libs
+*.lo
+*.slo
