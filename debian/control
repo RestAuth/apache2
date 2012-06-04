@@ -2,9 +2,12 @@ Source: libapache2-mod-authn-restauth
 Section: php
 Priority: extra
 Maintainer: Mathias Ertl <apt-repository@fsinf.at>
-Build-Depends: debhelper (>= 7.0.50), git-core, restauth-common, apache2-threaded-dev, libcurl3 (>= 7.18), libcurl4-gnutls-dev
+Build-Depends: debhelper (>= 7.0.50), apache2-threaded-dev,
+ libcurl3 (>= 7.18), libcurl4-gnutls-dev, libmemcached-dev
 Standards-Version: 3.9.1
-Homepage: http://fs.fsinf.at/wiki/RestAuth/Apache
+Homepage: https://restauth.net/wiki/Apache_plugin
+Vcs-Browser: https://git.fsinf.at/restauth/apache
+Vcs-Git: https://git.fsinf.at/restauth/apache.git
 
 Package: libapache2-mod-authn-restauth
 Architecture: any
