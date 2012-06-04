@@ -1,4 +1,4 @@
-libapache2-mod-authn-restauth (1:0.0-44-g8f5aea6) precise; urgency=low
+libapache2-mod-authn-restauth (1:0.0-44-g8f5aea6-1) precise; urgency=low
 
   * Migrate package to git-buildpackage
   * Version bump from upstream: Now use libmemcached as local cache
