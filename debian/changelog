@@ -3,6 +3,7 @@ libapache2-mod-authn-restauth (1:0.0-44-g8f5aea6) precise; urgency=low
   * Migrate package to git-buildpackage
   * Version bump from upstream: Now use libmemcached as local cache
   * Add Vcs-* tags, update homepage of project
+  * remove single-debian-patch dpkg option
 
  -- Mathias Ertl <apt-repository@fsinf.at>  Mon, 04 Jun 2012 11:18:50 +0200
 
