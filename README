@@ -78,6 +78,16 @@ RestAuthServiceValidateCertificate on
 # Defaults to "off"
 RestAuthForwardIP off
 
+# Optionally, if you want to use memcached for caching user credentials / group
+# information, specify the addresses of the memcached servers
+#
+# Defaults to ""
+RestAuthCacheAddress localhost:11211 remotehost:1234
+
+# Optionally, if you want to modify the number of seconds data is cached
+#
+# Defaults to 300
+RestAuthCacheExpiry 300
 
 
 LICENSE:
