@@ -1,3 +1,9 @@
+libapache2-mod-authn-restauth (1:0.0-46-g17c51b3) precise; urgency=low
+
+  * bump from upstream which gets libmemcached support working
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Mon, 04 Jun 2012 11:18:50 +0200
+
 libapache2-mod-authn-restauth (1:0.0-44-g8f5aea6-1) precise; urgency=low
 
   * Migrate package to git-buildpackage
