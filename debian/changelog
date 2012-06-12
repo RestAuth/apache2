@@ -1,4 +1,4 @@
-libapache2-mod-authn-restauth (1:0.0-48-gbf87888) precise; urgency=low
+libapache2-mod-authn-restauth (1:0.0-48-gbf87888-1) precise; urgency=low
 
   * Bump from upstream: Finally get memcached caching working
 
