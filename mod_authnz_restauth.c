@@ -56,6 +56,31 @@ typedef struct {
 #endif
 } authnz_restauth_config;
 
+#ifndef NO_MEMCACHED
+static void restauth_cache_error(request_rec *r, const char *command, memcached_return cache_status) {
+	char commandname[50];
+
+	if (cache_status == MEMCACHED_SUCCESS) {
+		strncpy(commandname, "MEMCACHED_SUCCESS", 49);
+	} else if (cache_status == MEMCACHED_PROTOCOL_ERROR) {
+		strncpy(commandname, "MEMCACHED_PROTOCOL_ERROR", 49);
+	} else if (cache_status == MEMCACHED_DATA_EXISTS) {
+		strncpy(commandname, "MEMCACHED_DATA_EXISTS", 49);
+	} else if (cache_status == MEMCACHED_DATA_DOES_NOT_EXIST) {
+		strncpy(commandname, "MEMCACHED_DATA_DOES_NOT_EXIST", 49);
+	} else if (cache_status == MEMCACHED_NOTSTORED) {
+		strncpy(commandname, "MEMCACHED_NOTSTORED", 49);
+	} else if (cache_status == MEMCACHED_STORED) {
+		strncpy(commandname, "MEMCACHED_STORED", 49);
+	} else if (cache_status == MEMCACHED_NOTFOUND) {
+		strncpy(commandname, "MEMCACHED_NOTFOUND", 49);
+	} else {
+		strncpy(commandname, "COMMAND_NOT_FOUND", 49);
+	}
+    ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r,
+                          "RestAuth cache failed on request: %s [Status: %d (%s)]", command, cache_status, commandname);
+}
+#endif
 
 static apr_status_t restauth_cleanup(void *data) {
     authnz_restauth_config *conf = (authnz_restauth_config *)data;
@@ -67,8 +92,6 @@ static apr_status_t restauth_cleanup(void *data) {
 
 #ifndef NO_MEMCACHED
    if (conf->cache) {
-       memcached_return rv;
-       rv = memcached_flush (conf->cache, 0);
        memcached_free (conf->cache);
        conf->cache = NULL;
    }
@@ -153,6 +176,9 @@ static const char *restauth_set_cache(cmd_parms *cmd,
 		}
         memcached_return rv;
         rv = memcached_server_add(conf->cache, host, port);
+        if (rv != MEMCACHED_SUCCESS) {
+            restauth_cache_error(NULL, "add_server", rv);
+	    }
 		free(host);
 	}
 
@@ -292,6 +318,9 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 		/* check memcached for value, if found return it instead of querying auth server */
 		cachekey_user = apr_psprintf(r->pool, "restauth/users/%s/", user);
 		cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
+        if (rv != MEMCACHED_SUCCESS && rv != MEMCACHED_NOTFOUND) {
+            restauth_cache_error(r, "get_user", rv);
+	    }
 
 		full_unhashed_string = apr_psprintf(r->pool, "%s%s", salt, sent_pw);
 		SHA1(full_unhashed_string, strlen(full_unhashed_string), pwhash);
@@ -363,6 +392,9 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	if (conf->cache) {
 		time_t timer = time(NULL);
 		rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, 20, timer+(conf->cache_expiry), 0);
+        if (rv != MEMCACHED_SUCCESS) {
+            restauth_cache_error(r, "set user", rv);
+	    }
 	}
 #endif
 
@@ -414,8 +446,11 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 
 	if (conf->cache) {
 		/* check memcached for value, if found return it instead of querying auth server */
-		cachekey_usergroup = apr_psprintf (r->pool, "restauth/groups/%s/users/%s/", user, group);
+		cachekey_usergroup = apr_psprintf (r->pool, "restauth/groups/%s/users/%s/", group, user);
 		cachevalue = memcached_get (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), &cachevalue_len, &flags, &rv);
+        if (rv != MEMCACHED_SUCCESS && rv != MEMCACHED_NOTFOUND) {
+            restauth_cache_error(r, "get_group", rv);
+	    }
 		if (cachevalue != NULL) {
 			if (strncmp(cachevalue, "yes", 3) == 0) {
 				free(cachevalue);
@@ -453,6 +488,9 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 		if (conf->cache) {
 			time_t timer = time(NULL);
 			rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+(conf->cache_expiry), 0);
+            if (rv != MEMCACHED_SUCCESS) {
+                restauth_cache_error(r, "set_group", rv);
+			}
 		}
 #endif
         return RESTAUTH_AUTHZ_GRANTED;
