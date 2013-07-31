@@ -3,7 +3,7 @@ Section: php
 Priority: extra
 Maintainer: Mathias Ertl <apt-repository@fsinf.at>
 Build-Depends: debhelper (>= 7.0.50), apache2-threaded-dev, libssl-dev,
- libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcached-dev
+ libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcache-dev
 Standards-Version: 3.9.1
 Homepage: https://restauth.net/wiki/Apache_plugin
 Vcs-Browser: https://git.fsinf.at/restauth/apache

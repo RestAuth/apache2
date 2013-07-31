@@ -1,3 +1,9 @@
+libapache2-mod-authn-restauth (1:0.0-48-gbf87888-2) precise; urgency=low
+
+  * use libmemcache instead of libmemcached as build-dependency.
+
+ -- Mathias Ertl <apt-repository@fsinf.at>  Wed, 31 Jul 2013 22:58:41 +0200
+
 libapache2-mod-authn-restauth (1:0.0-48-gbf87888-1) precise; urgency=low
 
   * Bump from upstream: Finally get memcached caching working
