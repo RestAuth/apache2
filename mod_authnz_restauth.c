@@ -258,6 +258,8 @@ static void config_curl_session(CURL *session, char *url, char *post_data) {
   if (post_data) {
     curl_easy_setopt(session, CURLOPT_POST, 1L);
     curl_easy_setopt(session, CURLOPT_POSTFIELDS, post_data);
+  } else {
+    curl_easy_setopt(session, CURLOPT_HTTPGET, 1L);
   }
 
   curl_easy_setopt(session, CURLOPT_URL, url);

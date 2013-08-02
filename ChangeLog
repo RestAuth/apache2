@@ -1,0 +1,4 @@
+RestAuth-Apache 0.31 (01 August 2013)
+
+	  * Fixed that the apache plugin sometimes sends POST request instead of
+	  GET requests.
