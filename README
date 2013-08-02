@@ -72,7 +72,9 @@ RestAuthServicePassword mysitepassword
 RestAuthServiceValidateCertificate on
 
 
-# whether to forward the client's ip address:
+# Whether to forward the client's IP address. This is the user
+# agent's IP address (relevant if there is a transparent load
+# balancer or proxy in between):
 # "password=<password>&ip=<ip>" is sent as POST data
 #
 # Defaults to "off"
@@ -93,3 +95,4 @@ RestAuthCacheExpiry 300
 LICENSE:
 
 Apache 2.0: http://www.apache.org/licenses/LICENSE-2.0
+See LICENSE file.

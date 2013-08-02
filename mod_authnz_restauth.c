@@ -349,7 +349,11 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
     char *url;
 
     /* fetch client ip */
+#if APACHE_OLDER_THAN(2,4)
     char *ip = r->connection->remote_ip;
+#else
+    char *ip = r->useragent_ip; /* renamed in 2.4 https://httpd.apache.org/docs/2.4/developer/new_api_2_4.html */
+#endif
 
     char *post_data = apr_psprintf(r->pool, "password=%s%s%s",
                                    url_pescape(r->pool, sent_pw),
@@ -417,7 +421,11 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 #define RESTAUTH_AUTHZ_ERROR AUTHZ_DENIED
 #endif
 
-static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const char *group) {
+static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const char *group
+#if !(APACHE_OLDER_THAN(2,4))
+    , const void *parsed_args /* new API parameter, unused for now */
+#endif
+    ) {
     authnz_restauth_config *conf = ap_get_module_config(r->per_dir_config, &authnz_restauth_module);
     int curl_perform_status;
     int curl_info_status;
@@ -549,6 +557,7 @@ static int authz_restauth_provider_wrapper(request_rec *r) {
 static const authz_provider authz_restauth_provider =
 {
      &authz_restauth_check,
+    NULL
 };
 #endif
 
