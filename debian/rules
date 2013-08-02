@@ -1,9 +1,7 @@
 #!/usr/bin/make -f
 
-DH_ARGS = --with quilt
-
 %:
-	dh ${DH_ARGS} $@
+	dh $@
 
 override_dh_auto_build:
 	make
