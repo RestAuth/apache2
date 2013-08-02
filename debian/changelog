@@ -1,6 +1,7 @@
-libapache2-mod-authn-restauth (1:0.0-48-gbf87888-2) precise; urgency=low
+libapache2-mod-authn-restauth (1:0.0-54-g0371182) precise; urgency=low
 
   * use libmemcache instead of libmemcached as build-dependency.
+  * Update debian/copyright file to include correct information.
 
  -- Mathias Ertl <apt-repository@fsinf.at>  Wed, 31 Jul 2013 22:58:41 +0200
 
