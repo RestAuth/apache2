@@ -437,9 +437,17 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 
     char *user = r->user;
 
-    /* no user? shouldn't happen! */
-    if (!user)
+    /* no user? shouldn't happen (except in 2.3.7-dev+)! */
+    if (!user) {
+#if APACHE_OLDER_THAN(2,4)
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r, "restauth-group: no user specified");
         return RESTAUTH_AUTHZ_ERROR;
+#else
+        /* apparently this is /modus operandi/ on 2.4 - calling this function twice, once with no user?
+           special return value is required to call function again (group auth will fail otherwise) */
+        return AUTHZ_DENIED_NO_USER;
+#endif
+    }
 
     /* user, but no url? */
     if (!conf->url) {
