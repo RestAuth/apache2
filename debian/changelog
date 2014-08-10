@@ -1,6 +1,7 @@
 libapache2-mod-authn-restauth (1:0.0-55-gebac4a9-2) unstable; urgency=low
 
   * Fix postinst script.
+  * Build-depend on libmemcached-dev.
   * Depend on libmemcache0.
   * Use new maintainer address.
 
