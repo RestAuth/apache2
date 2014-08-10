@@ -1,5 +1,6 @@
-libapache2-mod-authn-restauth (1:0.0-57-gf399eb8-1) unstable; urgency=low
+libapache2-mod-authnz-restauth (1:0.0-57-gf399eb8-1) unstable; urgency=low
 
+  * Rename package to (correct) libapache2-mod-authnz-restauth.
   * Fix postinst script.
   * Build-depend on libmemcached-dev and debhelper >= 9.
   * Depend on libmemcache0.

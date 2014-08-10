@@ -1,4 +1,4 @@
-Source: libapache2-mod-authn-restauth
+Source: libapache2-mod-authnz-restauth
 Section: php
 Priority: extra
 Maintainer: Mathias Ertl <mati@restauth.net>
@@ -9,12 +9,21 @@ Homepage: https://restauth.net/wiki/Apache_plugin
 Vcs-Browser: https://git.fsinf.at/restauth/apache
 Vcs-Git: https://git.fsinf.at/restauth/apache.git
 
-Package: libapache2-mod-authn-restauth
+Package: libapache2-mod-authnz-restauth
+Replaces: libapache2-mod-authn-restauth (<< 1:0.0-57-gf399eb8)
+Breaks: libapache2-mod-authn-restauth (<< 1:0.0-57-gf399eb8)
 Architecture: any
 Section: httpd
 Depends: apache2.2-common, libmemcache0, ${shlibs:Depends}, ${misc:Depends}
-Description: BasicAuth provider using a REST service.
- This module offers a Basic Authentication provider that forwards
- requests to a REST-based authentication service.
+Description: BasicAuth provider for a RestAuth service
+ This module provides a Basic Authentication provider that forwards
+ requests to a RestAuth-based authentication service.
  .
  This module only works on Apache 2.x servers
+
+Package: libapache2-mod-authn-restauth
+Depends: libapache2-mod-authnz-restauth
+Architecture: all
+Section: oldlibs
+Description: BasicAuth provider for a RestAuth service
+ This is a transitional dummy package. It can safely be removed.
