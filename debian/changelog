@@ -1,3 +1,11 @@
+libapache2-mod-authn-restauth (1:0.0-55-gebac4a9-2) unstable; urgency=low
+
+  * Fix postinst script.
+  * Depend on libmemcache0.
+  * Use new maintainer address.
+
+ -- Mathias Ertl <mati@restauth.net>  Sun, 10 Aug 2014 14:46:51 +0200
+
 libapache2-mod-authn-restauth (1:0.0-55-gebac4a9-1) precise; urgency=low
 
   * New version from upstream.

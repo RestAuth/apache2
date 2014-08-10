@@ -1,7 +1,7 @@
 Source: libapache2-mod-authn-restauth
 Section: php
 Priority: extra
-Maintainer: Mathias Ertl <apt-repository@fsinf.at>
+Maintainer: Mathias Ertl <mati@restauth.net>
 Build-Depends: debhelper (>= 7.0.50), apache2-threaded-dev, libssl-dev,
  libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcache-dev
 Standards-Version: 3.9.1
@@ -12,7 +12,7 @@ Vcs-Git: https://git.fsinf.at/restauth/apache.git
 Package: libapache2-mod-authn-restauth
 Architecture: any
 Section: httpd
-Depends: apache2.2-common, ${shlibs:Depends}, ${misc:Depends}
+Depends: apache2.2-common, libmemcache0, ${shlibs:Depends}, ${misc:Depends}
 Description: BasicAuth provider using a REST service.
  This module offers a Basic Authentication provider that forwards
  requests to a REST-based authentication service.
