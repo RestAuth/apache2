@@ -22,7 +22,7 @@ Description: BasicAuth provider for a RestAuth service
  This module only works on Apache 2.x servers
 
 Package: libapache2-mod-authn-restauth
-Depends: libapache2-mod-authnz-restauth
+Depends: libapache2-mod-authnz-restauth, ${misc:Depends}
 Architecture: all
 Section: oldlibs
 Description: BasicAuth provider for a RestAuth service
