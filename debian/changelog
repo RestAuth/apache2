@@ -5,6 +5,7 @@ libapache2-mod-authnz-restauth (1:0.0-57-gf399eb8-2) unstable; urgency=low
   * Depend on apache2-api-20120211 instead of apache2.2-common.
   * Fix name of .load file.
   * Use dh_apache2 to complete replace postinst/prerm scripts.
+  * Remove hardening-wrapper, use dpkg-buildflags instead.
 
  -- Mathias Ertl <mati@restauth.net>  Wed, 31 Dec 2014 14:22:19 +0100
 
