@@ -4,7 +4,7 @@ export DEB_BUILD_HARDENING=1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
-	dh $@
+	dh $@ --with apache2
 
 override_dh_auto_build:
 	make
