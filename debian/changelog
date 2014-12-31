@@ -1,11 +1,8 @@
 libapache2-mod-authnz-restauth (1:0.0-57-gf399eb8-2) unstable; urgency=low
 
   * Add "(transitional package)" to old package name.
-  * Remove libmemcache-dev as build-dependency (was just a mixup).
-  * Remove libmemcache0 as dependency (was just a mixup).
-  * Depend on apache2-api-20120211 instead of apache2.2-common, as instructed
-    by lintian.
-  * Rewrite postinst so that it uses apache2-maintscript-helper.
+  * Remove unneeded libmemcache-dev build-dep, libmemcache0 dependency.
+  * Depend on apache2-api-20120211 instead of apache2.2-common.
   * Fix name of .load file.
   * Use dh_apache2 to complete replace postinst/prerm scripts.
 
