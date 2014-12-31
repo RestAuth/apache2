@@ -1,2 +1,2 @@
 .libs/mod_authnz_restauth.so usr/lib/apache2/modules
-debian/authnz-restauth.load etc/apache2/mods-available
+debian/authnz_restauth.load etc/apache2/mods-available
