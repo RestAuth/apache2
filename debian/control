@@ -3,8 +3,7 @@ Section: php
 Priority: extra
 Maintainer: Mathias Ertl <mati@restauth.net>
 Build-Depends: debhelper (>= 9), apache2-threaded-dev, libssl-dev,
- libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcached-dev, apache2-dev,
- hardening-wrapper
+ libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcached-dev, apache2-dev
 Standards-Version: 3.9.1
 Homepage: https://restauth.net/wiki/Apache_plugin
 Vcs-Browser: https://git.fsinf.at/restauth/apache
