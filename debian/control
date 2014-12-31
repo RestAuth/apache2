@@ -26,5 +26,5 @@ Package: libapache2-mod-authn-restauth
 Depends: libapache2-mod-authnz-restauth, ${misc:Depends}
 Architecture: all
 Section: oldlibs
-Description: BasicAuth provider for a RestAuth service
+Description: BasicAuth provider for a RestAuth service (transition package)
  This is a transitional dummy package. It can safely be removed.
