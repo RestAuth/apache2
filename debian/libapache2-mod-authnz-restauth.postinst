@@ -1,29 +1,21 @@
 #!/bin/sh -e
-# copied from libapache2-mod-evasive 
 
-reload_apache()
-{
-        if apache2ctl configtest 2>/dev/null; then
-                invoke-rc.d apache2 force-reload || true
-        else
-                echo "Your apache2 configuration is broken, so we're not restarting it for you."
-        fi
-}
+case "$1" in
+    configure|reconfigure)
+        if [ -e /usr/share/apache2/apache2-maintscript-helper ] ; then
+            . /usr/share/apache2/apache2-maintscript-helper
+            apache2_infoke enmod authnz_restauth
+        fi       
+    ;;
 
-if [ -n "$2" ]; then
-# we're upgrading. test if we're enabled, and if so, restart to reload the
-# module.
-        if [ -e /etc/apache2/mods-enabled/authnz-restauth.load ]; then
-                reload_apache
-        fi
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
         exit 0
-fi
+    ;;
+esac
 
-if [ ! -e /etc/apache2/mods-enabled/authnz-restauth.load ]; then
-# Enable the module, but hide a2enmod's misleading message about apachectl
-# and force-reload the thing ourselves.
-        a2enmod authnz-restauth >/dev/null || true
-        reload_apache
-fi
 
 #DEBHELPER#
