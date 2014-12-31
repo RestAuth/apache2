@@ -3,6 +3,8 @@ libapache2-mod-authnz-restauth (1:0.0-57-gf399eb8-2) unstable; urgency=low
   * Add "(transitional package)" to old package name.
   * Remove libmemcache-dev as build-dependency (was just a mixup).
   * Remove libmemcache0 as dependency (was just a mixup).
+  * Depend on apache2-api-20120211 instead of apache2.2-common, as instructed
+    by lintian.
 
  -- Mathias Ertl <mati@restauth.net>  Wed, 31 Dec 2014 14:22:19 +0100
 

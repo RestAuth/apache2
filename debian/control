@@ -15,7 +15,7 @@ Replaces: libapache2-mod-authn-restauth (<< 1:0.0-57-gf399eb8)
 Breaks: libapache2-mod-authn-restauth (<< 1:0.0-57-gf399eb8)
 Architecture: any
 Section: httpd
-Depends: apache2.2-common, ${shlibs:Depends}, ${misc:Depends}
+Depends: apache2-api-20120211, ${shlibs:Depends}, ${misc:Depends}
 Description: BasicAuth provider for a RestAuth service
  This module provides a Basic Authentication provider that forwards
  requests to a RestAuth-based authentication service.
