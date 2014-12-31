@@ -3,7 +3,7 @@ Section: php
 Priority: extra
 Maintainer: Mathias Ertl <mati@restauth.net>
 Build-Depends: debhelper (>= 9), apache2-threaded-dev, libssl-dev,
- libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcache-dev, libmemcached-dev,
+ libcurl3 (>= 7.18), libcurl4-openssl-dev, libmemcached-dev,
  hardening-wrapper
 Standards-Version: 3.9.1
 Homepage: https://restauth.net/wiki/Apache_plugin
@@ -15,7 +15,7 @@ Replaces: libapache2-mod-authn-restauth (<< 1:0.0-57-gf399eb8)
 Breaks: libapache2-mod-authn-restauth (<< 1:0.0-57-gf399eb8)
 Architecture: any
 Section: httpd
-Depends: apache2.2-common, libmemcache0, ${shlibs:Depends}, ${misc:Depends}
+Depends: apache2.2-common, ${shlibs:Depends}, ${misc:Depends}
 Description: BasicAuth provider for a RestAuth service
  This module provides a Basic Authentication provider that forwards
  requests to a RestAuth-based authentication service.
