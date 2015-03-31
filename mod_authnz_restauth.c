@@ -56,6 +56,13 @@ typedef struct {
 #endif
 } authnz_restauth_config;
 
+#if !(APACHE_OLDER_THAN(2,4))
+static APR_OPTIONAL_FN_TYPE(ap_authn_cache_store) *authn_cache_store = NULL;
+#define AUTHN_CACHE_STORE(r,user,realm,data) \
+    if (authn_cache_store != NULL) \
+        authn_cache_store((r), "restauth", (user), (realm), (data))
+#endif
+
 #ifndef NO_MEMCACHED
 static void restauth_cache_error(request_rec *r, const char *command, memcached_return cache_status) {
 	char commandname[50];
@@ -404,6 +411,10 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 	}
 #endif
 
+#if !(APACHE_OLDER_THAN(2,4))
+	AUTHN_CACHE_STORE(r, user, NULL, sent_pw);
+#endif
+
     /* grant access */
     return AUTH_GRANTED;
 }
@@ -569,6 +580,13 @@ static const authz_provider authz_restauth_provider =
 };
 #endif
 
+#if !(APACHE_OLDER_THAN(2,4))
+static void opt_retr(void)
+{
+    authn_cache_store = APR_RETRIEVE_OPTIONAL_FN(ap_authn_cache_store);
+}
+#endif
+
 static void register_hooks(apr_pool_t *p)
 {
 #if APACHE_OLDER_THAN(2,3)
@@ -600,6 +618,7 @@ static void register_hooks(apr_pool_t *p)
                               &authz_restauth_provider,
                               AP_AUTH_INTERNAL_PER_CONF);
 
+    ap_hook_optional_fn_retrieve(opt_retr, NULL, NULL, APR_HOOK_MIDDLE);
 
 #endif
 }
