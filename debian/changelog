@@ -1,3 +1,9 @@
+libapache2-mod-authnz-restauth (1:0.0-58-g93b73d6-1) unstable; urgency=low
+
+  * add support for authn_cache_store
+
+ -- David Kaufmann <astra@ionic.at>  Wed, 01 Apr 2015 05:45:42 +0200
+
 libapache2-mod-authnz-restauth (1:0.0-57-gf399eb8-2) unstable; urgency=low
 
   * Add "(transitional package)" to old package name.
