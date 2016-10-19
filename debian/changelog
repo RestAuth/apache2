@@ -1,3 +1,9 @@
+libapache2-mod-authnz-restauth (1:0.0-59-g1afd51b-1) unstable; urgency=low
+
+  * more debugging for memcached errors
+
+ -- David Kaufmann <astra@ionic.at>  Wed, 19 Oct 2016 19:39:36 +0200
+
 libapache2-mod-authnz-restauth (1:0.0-58-g93b73d6-1) unstable; urgency=low
 
   * add support for authn_cache_store
