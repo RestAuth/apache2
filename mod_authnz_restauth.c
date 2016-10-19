@@ -64,7 +64,7 @@ static APR_OPTIONAL_FN_TYPE(ap_authn_cache_store) *authn_cache_store = NULL;
 #endif
 
 #ifndef NO_MEMCACHED
-static void restauth_cache_error(request_rec *r, const char *command, memcached_return cache_status) {
+static void restauth_cache_error(request_rec *r, const char *command, memcached_st *cache, memcached_return cache_status) {
 	char commandname[50];
 
 	if (cache_status == MEMCACHED_SUCCESS) {
@@ -81,6 +81,9 @@ static void restauth_cache_error(request_rec *r, const char *command, memcached_
 		strncpy(commandname, "MEMCACHED_STORED", 49);
 	} else if (cache_status == MEMCACHED_NOTFOUND) {
 		strncpy(commandname, "MEMCACHED_NOTFOUND", 49);
+	} else if (cache_status == MEMCACHED_ERRNO) {
+		strncpy(commandname, "MEMCACHED_ERRNO", 49);
+		ap_log_rerror(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r, "Memcached response: %s", memcached_strerror(cache, cache_status));
 	} else {
 		strncpy(commandname, "COMMAND_NOT_FOUND", 49);
 	}
@@ -184,7 +187,7 @@ static const char *restauth_set_cache(cmd_parms *cmd,
         memcached_return rv;
         rv = memcached_server_add(conf->cache, host, port);
         if (rv != MEMCACHED_SUCCESS) {
-            restauth_cache_error(NULL, "add_server", rv);
+            restauth_cache_error(NULL, "add_server", conf->cache, rv);
 	    }
 		free(host);
 	}
@@ -328,7 +331,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 		cachekey_user = apr_psprintf(r->pool, "restauth/users/%s/", user);
 		cachevalue = memcached_get(conf->cache, cachekey_user, strlen(cachekey_user), &cachevalue_len, &flags, &rv);
         if (rv != MEMCACHED_SUCCESS && rv != MEMCACHED_NOTFOUND) {
-            restauth_cache_error(r, "get_user", rv);
+            restauth_cache_error(r, "get_user", conf->cache, rv);
 	    }
 
 		full_unhashed_string = apr_psprintf(r->pool, "%s%s", salt, sent_pw);
@@ -406,7 +409,7 @@ static authn_status authn_restauth_check(request_rec *r, const char *user,
 		time_t timer = time(NULL);
 		rv = memcached_set (conf->cache, cachekey_user, strlen(cachekey_user), pwhash, 20, timer+(conf->cache_expiry), 0);
         if (rv != MEMCACHED_SUCCESS) {
-            restauth_cache_error(r, "set user", rv);
+            restauth_cache_error(r, "set_user", conf->cache, rv);
 	    }
 	}
 #endif
@@ -478,7 +481,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 		cachekey_usergroup = apr_psprintf (r->pool, "restauth/groups/%s/users/%s/", group, user);
 		cachevalue = memcached_get (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), &cachevalue_len, &flags, &rv);
         if (rv != MEMCACHED_SUCCESS && rv != MEMCACHED_NOTFOUND) {
-            restauth_cache_error(r, "get_group", rv);
+            restauth_cache_error(r, "get_group", conf->cache, rv);
 	    }
 		if (cachevalue != NULL) {
 			if (strncmp(cachevalue, "yes", 3) == 0) {
@@ -518,7 +521,7 @@ static RESTAUTH_AUTHZ_STATUS_TYPE authz_restauth_check(request_rec *r, const cha
 			time_t timer = time(NULL);
 			rv = memcached_set (conf->cache, cachekey_usergroup, strlen(cachekey_usergroup), "yes", 3, timer+(conf->cache_expiry), 0);
             if (rv != MEMCACHED_SUCCESS) {
-                restauth_cache_error(r, "set_group", rv);
+                restauth_cache_error(r, "set_group", conf->cache, rv);
 			}
 		}
 #endif
