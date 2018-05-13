@@ -1,3 +1,9 @@
+libapache2-mod-authnz-restauth (1:0.0-60-e5d7c2a4-1) unstable; urgency=low
+
+  * rebuild for php7
+
+ -- David Kaufmann <astra@ionic.at>  Sun, 13 May 2018 17:11:50 +0200
+
 libapache2-mod-authnz-restauth (1:0.0-59-g1afd51b-1) unstable; urgency=low
 
   * more debugging for memcached errors
