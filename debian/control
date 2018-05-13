@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Mathias Ertl <mati@restauth.net>
 Build-Depends: debhelper (>= 9), apache2-dev, libssl-dev, libcurl3 (>= 7.18),
  libcurl4-openssl-dev, libmemcached-dev
-Standards-Version: 3.9.1
+Standards-Version: 3.9.8
 Homepage: https://restauth.net/wiki/Apache_plugin
 Vcs-Browser: https://github.com/RestAuth/apache2
 Vcs-Git: https://github.com/RestAuth/apache2.git
