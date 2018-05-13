@@ -1,2 +1,3 @@
 .libs/mod_authnz_restauth.so usr/lib/apache2/modules
 debian/authnz_restauth.load etc/apache2/mods-available
+debian/lintian-overrides/libapache2-mod-authnz-restauth usr/share/lintian/overrides

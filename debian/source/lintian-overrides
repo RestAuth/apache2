@@ -1,4 +1,2 @@
 libapache2-mod-authnz-restauth source: changelog-should-mention-nmu
 libapache2-mod-authnz-restauth source: source-nmu-has-incorrect-version-number
-libapache2-mod-authnz-restauth source: package-has-long-file-name
-libapache2-mod-authnz-restauth source: apache2-module-depends-on-real-apache2-package
