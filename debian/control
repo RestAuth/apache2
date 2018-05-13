@@ -2,7 +2,7 @@ Source: libapache2-mod-authnz-restauth
 Section: web
 Priority: extra
 Maintainer: Mathias Ertl <mati@restauth.net>
-Build-Depends: debhelper (>= 9), apache2-dev, libssl-dev, libcurl3 (>= 7.18),
+Build-Depends: debhelper (>= 9), libssl-dev, libcurl3 (>= 7.18),
  libcurl4-openssl-dev, libmemcached-dev, dh-apache2
 Standards-Version: 3.9.8
 Homepage: https://restauth.net/wiki/Apache_plugin
