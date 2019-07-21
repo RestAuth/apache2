@@ -1,3 +1,15 @@
+libapache2-mod-authnz-restauth (1:0.0-61-g8913138-1) unstable; urgency=medium
+
+  * fix dependencies, update url
+  * update standards version
+  * add dh-apache2
+  * remove direct dependency to apache2-dev
+  * add debian/lintian-overrides
+  * more lintian overrides
+  * build with libcurl4
+
+ -- David Kaufmann <astra@ionic.at>  Sun, 21 Jul 2019 20:28:08 +0200
+
 libapache2-mod-authnz-restauth (1:0.0-60-g1afd51b-1) unstable; urgency=low
 
   * rebuild for php7
