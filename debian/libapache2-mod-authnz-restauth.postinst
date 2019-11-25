@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    configure)
+        echo -n "Removing old restauth module name authnz-restauth.load.."
+		rm -f /etc/apache2/mods-available/authnz-restauth.load
+        invoke-rc.d apache2 reload
+        ;;
+esac
+
+#DEBHELPER#
+
