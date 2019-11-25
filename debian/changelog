@@ -1,3 +1,9 @@
+libapache2-mod-authnz-restauth (1:0.0-61-g8913138-2) unstable; urgency=medium
+
+  * cleanup old module names
+
+ -- David Kaufmann <astra@ionic.at>  Mon, 25 Nov 2019 16:15:29 +0100
+
 libapache2-mod-authnz-restauth (1:0.0-61-g8913138-1) unstable; urgency=medium
 
   * fix dependencies, update url
